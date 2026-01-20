@@ -169,30 +169,43 @@ class ShopeeAffiliateBot:
             return False
 
     def _is_good_product(self, product: Dict, strict: bool = True) -> bool:
-        """
-        Valida o produto.
-        strict = True -> Modo Elite (Só os melhores)
-        strict = False -> Modo Repescagem (Aceita produtos OK para não ficar sem postar)
-        """
         try:
             price = float(product.get("priceMin", 0))
             sales = product.get("sales", 0)
             rating = float(product.get("ratingStar", 0))
+            title = product.get("productName", "").lower()
             
-            # --- MODO ELITE (Rigoroso) ---
-            if strict:
-                if price < 15.00: return False
-                if sales < 50: return False # Média de vendas razoável
-                if rating < 4.4: return False
-                return True
+            # --- 1. LISTA NEGRA ---
+            # Produtos que vendem muito mas ninguém clica por impulso
+            bad_words = [
+                "capa", "capinha", "case", "película", "pelicula", "vidro 3d", "vidro 9d",
+                "adaptador", "cabo usb", "cabo de dados", "cordão", "suporte simples",
+                "pezinho", "parafuso", "borracha", "adesivo", "sticker", "refil",
+                "bateria", "pilha", "plug", "tomada", "extensão"
+            ]
             
-            # --- MODO REPESCAGEM (Flexível) ---
+            # Se tiver qualquer palavra proibida no título, descarta IMEDIATAMENTE
+            # (Exceto se custar mais de R$ 50,00, aí pode ser uma capa premium ou cabo de luxo)
+            if price < 50.00:
+                if any(bad in title for bad in bad_words):
+                    return False
+
+            # --- 2. FILTRO DE PREÇO (Ticket de Impulso) ---
+            if price < 20.00: return False
+
+            # --- 3. RATING DINÂMICO ---
+            # Se for "barato" (25 a 60), tem que ser INCRÍVEL (Nota > 4.7)
+            if 25.00 <= price <= 60.00:
+                if rating < 4.7: return False
+                if sales < 200: return False # Tem que ter muita prova social
+            
+            # Se for "caro" (> 60), aceitamos nota normal (4.5) pois tem menos reviews
             else:
-                # Aceita produtos mais baratos se tiverem MUITA venda
-                if price >= 10.00 and sales > 200 and rating >= 4.1: return True
-                # Ou produtos caros com menos vendas
-                if price > 50.00 and rating >= 4.2: return True
-                return False
+                if rating < 4.5: return False
+                if sales < 50: return False
+
+            return True
+
         except:
             return False
 
@@ -200,134 +213,80 @@ class ShopeeAffiliateBot:
         print("🚀 Bot Shopee: MARKETING MODE ON!")
         
         keywords = [
-            # --- TECNOLOGIA & MOBILE ---
-            "fone bluetooth original", "fone bluetooth barato", "fone gamer bluetooth",
-            "earbuds esportivo", "fone com cancelamento de ruido",
-            "smartwatch feminino", "smartwatch masculino", "smartwatch barato",
-            "pulseira inteligente", "miband original",
-            "carregador rapido", "carregador turbo tipo c",
-            "cabo usb c reforçado", "cabo lightning original",
-            "power bank 20000mah", "power bank mag safe",
-            "suporte celular mesa", "suporte celular veicular",
-            "tripé com ring light", "selfie stick bluetooth",
-            "caixa de som potente", "caixa de som prova dagua",
-            "alexa echo dot 5", "google nest mini",
-            
-            # --- GAMER & ESCRITÓRIO ---
-            "mouse gamer", "teclado mecanico", "headset gamer", "mousepad gigante",
-            "cadeira gamer", "mesa digitalizadora", "suporte notebook",
-            "webcam", "microfone lapela", "pendrive",
-            "mouse gamer rgb", "mouse gamer barato",
-            "teclado mecanico rgb", "teclado mecanico 60%",
-            "headset gamer com microfone",
-            "suporte notebook ajustavel",
-            "mesa articulada notebook",
-            "webcam full hd",
-            "microfone condensador usb",
-            "ring light escritorio",
-            "mousepad gamer grande",
-            "cadeira ergonomica escritorio",
-            
-            # --- CASA INTELIGENTE & DECORAÇÃO ---
-            "lampada smart wifi", "lampada rgb inteligente",
-            "fita led quarto", "fita led tv",
-            "interruptor wifi alexa",
-            "luminaria led escritorio",
-            "projetor galaxia", "projetor estrela",
-            "umidificador ultrassonico",
-            "difusor de aromas eletrico",
-            "ventilador silencioso",
-            "organizador multiuso",
-            "quadro decorativo",
-            "placa decorativa",
-            "caixa organizadora plastica",
-            "prateleira adesiva",
-            "gancho adesivo forte",
-            
-            # --- COZINHA PRÁTICA ---
-            "mini processador", "triturador de alho", "mixer portatil",
-            "garrafa termica", "copo termico", "caneca stanley",
-            "balança digital cozinha", "organizador geladeira", "potes hermeticos",
-            "forma airfryer silicone", "afiador de facas", "mop giratorio",
-            "airfryer acessorios",
-            "forma silicone airfryer",
-            "kit utensilios cozinha silicone",
-            "triturador eletrico",
-            "processador manual",
-            "escorredor retratil",
-            "organizador de temperos",
-            "pote hermetico cozinha",
-            "tampa silicone reutilizavel",
-            "garrafa termica inox",
-            "copo termico com tampa",
-            "marmita eletrica",
-            
-            # --- BELEZA & CUIDADOS PESSOAIS ---
-            "secador de cabelo", "escova secadora", "chapinha", "babyliss",
-            "maquina de cortar cabelo", "barbeador eletrico", "aparador de pelos",
-            "skincare", "serum facial", "protetor solar facial",
-            "massageador eletrico", "kit pinceis maquiagem",
-            "escova secadora original",
-            "secador profissional",
-            "chapinha ceramica",
-            "babyliss automatico",
-            "maquina cortar cabelo profissional",
-            "aparador de barba",
-            "massageador facial",
-            "limpador facial eletrico",
-            "kit skincare completo",
-            "organizador maquiagem",
-            "espelho led maquiagem",
-            "kit manicure eletrico",
-            
-            # --- AUTOMOTIVO & FERRAMENTAS ---
-            "aspirador portatil carro", "suporte celular carro", "compressor de ar portatil",
-            "multimetro digital", "parafusadeira", "jogo de chaves",
-            "aspirador carro potente",
-            "compressor ar portatil",
-            "calibrador digital pneus",
-            "suporte celular painel",
-            "camera de re automotiva",
-            "carregador veicular turbo",
-            "organizador porta malas",
-            "capa banco automotivo",
-            "tapete carro universal",
+            # --- ELETRÔNICOS & TECH VIRAIS ---
+            "Lenovo GM2 Pro", "Lenovo LP40", "Fone Bluetooth Baseus", "QCY T13", 
+            "Redmi Buds 4", "JBL Go 3", "Caixa de Som Tronsmart", "Soundbar TV",
+            "Smartwatch Haylou", "Amazfit Bip", "Mi Band 8", "Smartwatch Colmi",
+            "Alexa Echo Dot", "Fire TV Stick", "Google Chromecast", "Roku Express",
+            "Kindle 11", "Tablet Samsung A9", "Tablet Xiaomi",
+            "Carregador Baseus 20W", "Power Bank Baseus", "Carregador Portátil Pineng",
+            "Estabilizador Celular", "Gimbal", "Microfone Lapela Sem Fio",
+            "Ring Light Profissional", "Tripé Flexivel", "Suporte Celular Mesa",
 
-            # --- PETS ---
-            "bebedouro automatico pet", "comedouro pet inox",
-            "escova removedora pelos", "cama pet lavavel",
-            "brinquedo interativo cachorro", "coleira peitoral cachorro",
-            "areia higienica gato", "caixa transporte pet", "fonte agua gato",
+            # --- GAMER & SETUP (Alta Margem) ---
+            "Teclado Mecanico Redragon", "Teclado Machenike", "Mouse Logitech G203", 
+            "Mousepad Gamer 90x40", "Mousepad RGB", "Headset Havit", "Headset HyperX",
+            "Controle 8BitDo", "Controle PS4 Sem Fio", "Controle Xbox Wireless",
+            "Microfone Fifine", "Microfone HyperX Solocast", "Braço Articulado Microfone",
+            "Fita LED Neon", "Barra de Luz Monitor", "Luminária Pixel", "Cadeira Gamer",
+            "Cooler Celular", "Luva de Dedo Gamer", "Switch HDMI", "Monitor Gamer", "Monitor LG Ultragear", 
+            "Suporte Monitor", "Monitor Ultrawide", "Webcam 1080p",
 
-            # --- BEBÊ & INFANTIL ---
-            "babá eletrônica", "aspirador nasal bebe",
-            "termometro digital bebe", "kit cuidados bebe",
-            "organizadores quarto bebe", "tapete infantil educativo",
-            "brinquedo educativo montessori", "luz noturna infantil",
+            # --- CASA, COZINHA & ORGANIZAÇÃO (Ouro das Donas de Casa) ---
+            "Mini Processador Elétrico", "Copo Stanley", "Garrafa Térmica Pacco",
+            "Mop Giratório Flash Limp", "Robô Aspirador", "Aspirador Vertical",
+            "Umidificador Chama", "Umidificador Anti Gravidade", "Difusor Óleos Essenciais",
+            "Projetor Hy300", "Luminária", "Despertador Digital Led",
+            "Mixer Portátil", "Seladora de Embalagem", "Dispensador Pasta Dente",
+            "Organizador de Cabos", "Organizador Geladeira Acrilico", "Potes Herméticos",
+            "Forma Airfryer Silicone", "Tapete Super Absorvente", "Cabides Veludo",
+            "Sapateira Organizadora", "Escorredor Louça Dobravel", "Triturador Alho Manual",
 
-            # --- SUPLEMENTOS ---
-            "whey protein", "creatina", "pré treino", "bcaa",
-            "multivitaminico", "omega 3", "colageno hidrolisado",
-            "termogenico", "melatonina",
+            # --- FITNESS & SUPLEMENTOS (Recorrência Alta) ---
+            "Creatina Monohidratada", "Creatina Max Titanium", "Creatina Soldiers",
+            "Whey Protein Concentrado", "Whey Growth", "Whey Max Titanium",
+            "Pré Treino Haze", "Pasta de Amendoim Integral", "Barra de Proteína",
+            "Coqueteleira Inox", "Strap Musculação", "Hand Grip Ajustavel",
+            "Corda de Pular Rolamento", "Elásticos Extensores Treino", "Kit Band Faixa",
+            "Tapete Yoga Antiderrapante", "Roda Abdominal", "Balança Bioimpedância",
+            "Garrafa Galão 2L", "Luva Academia",
 
-            # --- ACESSÓRIOS FITNESS & TREINO EM CASA ---
-            "luva academia", "cinta abdominal", "faixa elastica fitness",
-            "mini band elastico", "corda de pular crossfit",
-            "hand grip exercitador", "joelheira esportiva",
-            "tapete yoga antiderrapante", "roda abdominal",
-            "flexao apoio", "peso russo kettlebell",
-
-            # --- MODA ---
-            "camiseta masculina basica", "camiseta oversized",
-            "bermuda masculina", "calca jogger masculina",
-            "bone masculino", "vestido feminino casual",
-            "legging fitness", "top fitness", "bolsa feminina",
-            "mochila impermeavel", "relogio masculino",
+            # --- SKINCARE & MAQUIAGEM (Marcas Shopee Friendly) ---
+            "Serum Principia", "Sabonete Principia", "Creamy Skincare",
+            "Protetor Solar Bioré", "Protetor Solar Neostrata", "Gel Limpeza CeraVe",
+            "Hidratante CeraVe", "Cicaplast Baume", "Oleo de Rosa Mosqueta",
+            "Ruby Rose Melu", "Gloss Labial Volumoso", "Lip Tint",
+            "Pó Solto Boca Rosa", "Corretivo Fran", "Paleta Sombras Océane",
+            "Esponja Maquiagem Mari Saad", "Pincel Maquiagem Kit", 
+            "Escova Limpeza Facial Elétrica", "Espelho Led Maquiagem",
             
-            # --- ACHADINHOS GERAIS ---
-            "achadinhos shopee", "ofertas shopee hoje",
-            "produtos mais vendidos shopee", "promoção shopee",
-            "gadgets virais", "utilidades que facilitam a vida"
+            # --- MODA & ACESSÓRIOS (Ticket Médio/Baixo) ---
+            "Camiseta Oversized Masculina", "Camiseta Dry Fit", "Shorts Tactel Masculino", "Calça Jogger Masculina",
+            "Mochila Impermeavel Notebook", "Bolsa Transversal Feminina", "Shoulder Bag",
+            "Vestido Canelado", "Conjunto Alfaiataria Feminino", "Conjunto Alfaiataria Masculino", "Calça Wide Leg",
+            "Legging Fitness Cintura Alta", "Top Fitness Sustentação", "Shorts Saia Academia",
+            "Meias Nike", "Carteira Masculina Couro", "Cinto Couro Masculino", "Relógio Feminino Minimalista",
+
+            # --- PETS (Público Apaixonado) ---
+            "Fonte Bebedouro Gato", "Fonte Gato Inox", "Comedouro Elevado",
+            "Arranhador Gato Torre", "Arranhador Papelão", "Cama Nuvem Pet",
+            "Tapete Higiênico Lavavel", "Guia Retrátil Cachorro", "Peitoral Antipuxão",
+            "Brinquedo Kong", "Churu Gato", "Escova Removedora Pelos Pet",
+            "Luva Tira Pelos", "Cortador Unha Pet",
+
+            # --- FERRAMENTAS & AUTOMOTIVO (Público Masculino) ---
+            # "Parafusadeira Bateria", "Jogo Chaves Catraca", "Maleta Ferramentas",
+            # "Multimetro Digital", "Trena Laser", "Nivel a Laser",
+            # "Aspirador Portátil Carro", "Compressor Ar Portátil", "Auxiliar Partida",
+            # "Suporte Celular Carro Magnético", "Capa Chave Canivete", "Som Automotivo Bluetooth"
+
+            # --- SAZONALIDADE ---
+            # "ovo de pascoa", "barra de chocolate", "forma de ovo de pascoa", # PÁSCOA
+            # "kit dia das maes", "perfume feminino importado", "bolsa feminina luxo", # DIA DAS MÃES
+            # "camisa time brasil", "bandeira do brasil", "corneta", # COPA/OLIMPÍADAS
+            # "decoração de natal", "arvore de natal", "pisca pisca led", # NATAL
+            "material escolar", "mochila escolar", "caderno inteligente", # VOLTA ÀS AULAS (JANEIRO)
+            "ventilador de teto", "ar condicionado portatil", "climatizador", # VERÃO FORTE
         ]
         
         while True:
