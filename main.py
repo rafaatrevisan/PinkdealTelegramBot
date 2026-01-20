@@ -224,7 +224,7 @@ class ShopeeAffiliateBot:
             "Ring Light Profissional", "Tripé Flexivel", "Suporte Celular Mesa",
 
             # --- GAMER & SETUP (Alta Margem) ---
-            "Teclado Mecanico Redragon", "Teclado Machenike", "Mouse Logitech G203", 
+            "Teclado Mecanico Redragon", "Teclado Machenike", "Mouse Logitech Gamer", "Mouse Attack Shark",
             "Mousepad Gamer 90x40", "Mousepad RGB", "Headset Havit", "Headset HyperX",
             "Controle 8BitDo", "Controle PS4 Sem Fio", "Controle Xbox Wireless",
             "Microfone Fifine", "Microfone HyperX Solocast", "Braço Articulado Microfone",
