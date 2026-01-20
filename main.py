@@ -42,13 +42,10 @@ class ShopeeAffiliateBot:
             return discount if discount >= 5 else 0
         return 0
 
-    def get_products(self, keyword: str = "", sort_type: int = 2, limit: int = 10, page: int = 1):
+    def get_products(self, keyword: str = "", sort_type: int = 2, limit: int = 50, page: int = 1):
         """
-        Busca produtos.
-        sort_type: 2 = Mais Vendidos, 5 = Maior Comissão
+        Busca produtos com assinatura correta (Payload incluso).
         """
-        
-        # Monta os parâmetros dinamicamente
         params = [f'limit: {limit}', f'page: {page}', f'sortType: {sort_type}']
         if keyword:
             params.append(f'keyword: "{keyword}"')
@@ -57,7 +54,7 @@ class ShopeeAffiliateBot:
         
         query = (
             f"query {{ productOfferV2({params_str}) {{ "
-            f"nodes {{ itemId productName imageUrl priceMin priceMax offerLink sales }} "
+            f"nodes {{ itemId productName imageUrl priceMin priceMax offerLink sales ratingStar }} "
             f"pageInfo {{ hasNextPage }} }} }}"
         )
 
@@ -75,7 +72,7 @@ class ShopeeAffiliateBot:
         }
 
         try:
-            print(f"🔎 Buscando na pág {page} (Tipo: {sort_type}, Keyword: '{keyword}')...")
+            print(f"🔎 [{datetime.now().strftime('%H:%M')}] Buscando: '{keyword}' (Pág {page})...")
             response = requests.post(self.shopee_url, headers=headers, data=payload_str, timeout=20)
             response.raise_for_status()
             
@@ -110,12 +107,26 @@ class ShopeeAffiliateBot:
 
         if price_min <= 0: return False
 
-        # Lógica de Desconto Corrigida
+        # Dados para Marketing
         discount = self._calculate_real_discount(price_min, price_max)
         price_fmt = self._format_price(price_min)
+        sales = product.get("sales", 0)
+        rating = float(product.get("ratingStar", 0))
 
-        # Monta Legenda
-        caption = f"🔥 <b>{title}</b>\n\n"
+        # --- COPYWRITING MARKETING ---
+        
+        # 1. Headline baseada em dados
+        if sales > 1000:
+            header_emoji = "🏆 <b>ITEM VIRAL!</b>"
+        elif discount > 40:
+            header_emoji = "🚨 <b>SUPER OFERTA!</b>"
+        elif rating >= 4.8:
+            header_emoji = "⭐ <b>AVALIAÇÃO MÁXIMA!</b>"
+        else:
+            header_emoji = "🔥 <b>ACHADINHO!</b>"
+
+        caption = f"{header_emoji}\n\n"
+        caption += f"📦 <b>{title}</b>\n\n"
         
         if discount > 0:
             caption += f"📉 <b>-{discount}% OFF!</b>\n"
@@ -123,11 +134,19 @@ class ShopeeAffiliateBot:
         else:
             caption += f"💰 Apenas: <b>{price_fmt}</b>\n"
 
-        sales = product.get("sales", 0)
         if sales > 0:
-            caption += f"📦 +{sales} vendidos\n"
+            caption += f"🔥 +{sales} vendidos | ⭐ {rating:.1f}/5.0\n"
 
-        caption += f"\n👉 <b>COMPRE AQUI:</b> <a href='{link}'>Ver na Shopee</a>"
+        # 2. CTAs Rotativos
+        ctas = [
+            "👉 <b>COMPRE AQUI:</b>",
+            "🏃‍♂️ <b>CORRA ANTES QUE ACABE:</b>",
+            "⚡ <b>LINK PROMOCIONAL:</b>",
+            "🛒 <b>GARANTA O SEU:</b>"
+        ]
+        chosen_cta = random.choice(ctas)
+
+        caption += f"\n{chosen_cta} <a href='{link}'>Ver na Shopee</a>"
 
         payload = {
             "chat_id": self.telegram_chat_id,
@@ -138,10 +157,9 @@ class ShopeeAffiliateBot:
 
         try:
             requests.post(self.telegram_url, json=payload)
-            print(f"✅ Enviado: {title[:40]}...")
-            self.sent_products.add(item_id)
+            print(f"✅ Enviado: {title[:30]}... (R$ {price_min})")
             
-            # Limpa cache se ficar muito grande (500 itens)
+            self.sent_products.add(item_id)
             if len(self.sent_products) > 500:
                 self.sent_products.clear()
                 
@@ -163,58 +181,23 @@ class ShopeeAffiliateBot:
             
             # --- MODO ELITE (Rigoroso) ---
             if strict:
-                # Preço > R$ 15
                 if price < 15.00: return False
-                # Vendas > 100
-                if sales < 100: return False
-                # Nota > 4.5
-                if rating < 4.5: return False
+                if sales < 50: return False # Média de vendas razoável
+                if rating < 4.4: return False
                 return True
             
             # --- MODO REPESCAGEM (Flexível) ---
             else:
                 # Aceita produtos mais baratos se tiverem MUITA venda
-                if price >= 10.00 and sales > 100 and rating >= 4.0:
-                    return True
+                if price >= 10.00 and sales > 200 and rating >= 4.1: return True
                 # Ou produtos caros com menos vendas
-                if price > 50.00 and rating >= 4.0:
-                    return True
-                
+                if price > 50.00 and rating >= 4.2: return True
                 return False
         except:
             return False
 
-    def get_products(self, keyword: str = "", sort_type: int = 2, limit: int = 50, page: int = 1):
-        # ... (O código desta função permanece igual, apenas mude o padrão limit=50)
-        # ... Certifique-se de que a query use esse 'limit'
-        params = [f'limit: {limit}', f'page: {page}', f'sortType: {sort_type}']
-        if keyword: params.append(f'keyword: "{keyword}"')
-        params_str = ', '.join(params)
-        
-        query = (
-            f"query {{ productOfferV2({params_str}) {{ "
-            f"nodes {{ itemId productName imageUrl priceMin priceMax offerLink sales ratingStar }} "
-            f"pageInfo {{ hasNextPage }} }} }}"
-        )
-        # ... (Resto da função de request e assinatura igual ao anterior) ...
-        # (Vou omitir aqui para economizar espaço, mas use a mesma lógica de assinatura do código anterior)
-        # Apenas lembre de copiar o bloco payload/assinatura/request aqui dentro.
-        
-        # --- CÓDIGO DO GET_PRODUCTS (RESUMIDO PARA CONTEXTO) ---
-        payload_dict = {"query": query}
-        payload_str = json.dumps(payload_dict, separators=(',', ':'))
-        timestamp = int(time.time())
-        raw_signature = f"{self.app_key}{timestamp}{payload_str}{self.app_secret}"
-        signature = hashlib.sha256(raw_signature.encode('utf-8')).hexdigest()
-        headers = {"Content-Type": "application/json", "Authorization": f"SHA256 Credential={self.app_key},Timestamp={timestamp},Signature={signature}"}
-        try:
-            response = requests.post(self.shopee_url, headers=headers, data=payload_str, timeout=20)
-            data = response.json()
-            return data.get("data", {}).get("productOfferV2", {}).get("nodes", [])
-        except: return []
-
     def run_forever(self):
-        print("🚀 Bot Shopee: Iniciado com CRONOGRAMA INTELIGENTE!")
+        print("🚀 Bot Shopee: MARKETING MODE ON!")
         
         keywords = [
             # --- TECNOLOGIA & MOBILE ---
@@ -228,7 +211,7 @@ class ShopeeAffiliateBot:
             "suporte celular mesa", "suporte celular veicular",
             "tripé com ring light", "selfie stick bluetooth",
             "caixa de som potente", "caixa de som prova dagua",
-            "alexa echo dot 5", "google nest mini"
+            "alexa echo dot 5", "google nest mini",
             
             # --- GAMER & ESCRITÓRIO ---
             "mouse gamer", "teclado mecanico", "headset gamer", "mousepad gigante",
@@ -243,7 +226,7 @@ class ShopeeAffiliateBot:
             "microfone condensador usb",
             "ring light escritorio",
             "mousepad gamer grande",
-            "cadeira ergonomica escritorio"
+            "cadeira ergonomica escritorio",
             
             # --- CASA INTELIGENTE & DECORAÇÃO ---
             "lampada smart wifi", "lampada rgb inteligente",
@@ -259,7 +242,7 @@ class ShopeeAffiliateBot:
             "placa decorativa",
             "caixa organizadora plastica",
             "prateleira adesiva",
-            "gancho adesivo forte"
+            "gancho adesivo forte",
             
             # --- COZINHA PRÁTICA ---
             "mini processador", "triturador de alho", "mixer portatil",
@@ -277,7 +260,7 @@ class ShopeeAffiliateBot:
             "tampa silicone reutilizavel",
             "garrafa termica inox",
             "copo termico com tampa",
-            "marmita eletrica"
+            "marmita eletrica",
             
             # --- BELEZA & CUIDADOS PESSOAIS ---
             "secador de cabelo", "escova secadora", "chapinha", "babyliss",
@@ -295,7 +278,7 @@ class ShopeeAffiliateBot:
             "kit skincare completo",
             "organizador maquiagem",
             "espelho led maquiagem",
-            "kit manicure eletrico"
+            "kit manicure eletrico",
             
             # --- AUTOMOTIVO & FERRAMENTAS ---
             "aspirador portatil carro", "suporte celular carro", "compressor de ar portatil",
@@ -308,195 +291,85 @@ class ShopeeAffiliateBot:
             "carregador veicular turbo",
             "organizador porta malas",
             "capa banco automotivo",
-            "tapete carro universal"
+            "tapete carro universal",
 
             # --- PETS ---
-            "bebedouro automatico pet",
-            "comedouro pet inox",
-            "escova removedora pelos",
-            "cama pet lavavel",
-            "brinquedo interativo cachorro",
-            "coleira peitoral cachorro",
-            "areia higienica gato",
-            "caixa transporte pet",
-            "fonte agua gato"
+            "bebedouro automatico pet", "comedouro pet inox",
+            "escova removedora pelos", "cama pet lavavel",
+            "brinquedo interativo cachorro", "coleira peitoral cachorro",
+            "areia higienica gato", "caixa transporte pet", "fonte agua gato",
 
             # --- BEBÊ & INFANTIL ---
-            "babá eletrônica",
-            "aspirador nasal bebe",
-            "termometro digital bebe",
-            "kit cuidados bebe",
-            "organizadores quarto bebe",
-            "tapete infantil educativo",
-            "brinquedo educativo montessori",
-            "luz noturna infantil"
+            "babá eletrônica", "aspirador nasal bebe",
+            "termometro digital bebe", "kit cuidados bebe",
+            "organizadores quarto bebe", "tapete infantil educativo",
+            "brinquedo educativo montessori", "luz noturna infantil",
 
             # --- SUPLEMENTOS ---
-            "whey protein",
-            "whey protein concentrado",
-            "whey protein 1kg",
-            "whey protein chocolate",
-            "creatina",
-            "creatina monohidratada",
-            "creatina pura",
-            "creatina em pó",
-            "pré treino",
-            "pre treino sem cafeina",
-            "pre treino importado",
-            "bcaa",
-            "glutamina",
-            "hipercalorico",
-            "multivitaminico",
-            "omega 3",
-            "colageno hidrolisado",
-            "termogenico",
-            "capsulas cafeina",
-            "vitamina d3",
-            "vitamina c",
-            "melatonina",
-            "zma suplemento",
+            "whey protein", "creatina", "pré treino", "bcaa",
+            "multivitaminico", "omega 3", "colageno hidrolisado",
+            "termogenico", "melatonina",
 
-            # --- ACESSÓRIOS FITNESS ---
-            "luva academia",
-            "cinta lombar treino",
-            "cinta abdominal",
-            "faixa elastica fitness",
-            "mini band elastico",
-            "corda de pular crossfit",
-            "hand grip exercitador",
-            "strap musculacao",
-            "joelheira esportiva",
-            "tornozeleira com peso",
-            "halter ajustavel",
-            "barra musculacao",
-            "tapete yoga antiderrapante",
+            # --- ACESSÓRIOS FITNESS & TREINO EM CASA ---
+            "luva academia", "cinta abdominal", "faixa elastica fitness",
+            "mini band elastico", "corda de pular crossfit",
+            "hand grip exercitador", "joelheira esportiva",
+            "tapete yoga antiderrapante", "roda abdominal",
+            "flexao apoio", "peso russo kettlebell",
 
-            # --- TREINO EM CASA ---
-            "kit treino em casa",
-            "academia em casa",
-            "roda abdominal",
-            "abdominal roller",
-            "flexao apoio",
-            "step aerobico",
-            "peso russo kettlebell",
-            "elastico pilates",
-
-            # --- RECUPERAÇÃO & BEM-ESTAR ---
-            "massageador muscular",
-            "pistola massageadora",
-            "bola massageadora",
-            "faixa compressao",
-            "meia compressao",
-            "corretor postura",
-            "suporte lombar",
-            "alongador coluna"
-
-            # --- MODA MASCULINA ---
-            "camiseta masculina basica",
-            "camiseta oversized",
-            "camisa dry fit masculina",
-            "camiseta academia masculina",
-            "bermuda masculina",
-            "bermuda tactel",
-            "short treino masculino",
-            "calca jogger masculina",
-            "moletom masculino",
-            "jaqueta corta vento",
-            "cueca boxer algodao",
-            "kit cueca masculina",
-            "meias masculinas kit",
-            "bone masculino",
-            "bone aba curva"
-
-            # --- MODA FEMININA ---
-            "vestido feminino casual",
-            "vestido canelado",
-            "vestido midi",
-            "conjunto feminino",
-            "conjunto academia feminino",
-            "legging fitness",
-            "legging cintura alta",
-            "top fitness",
-            "cropped feminino",
-            "camiseta feminina basica",
-            "blusa feminina",
-            "short saia",
-            "pijama feminino",
-            "lingerie feminina",
-            "kit calcinha"
-
-            # --- ACESSÓRIOS ---
-            "bolsa feminina",
-            "bolsa transversal",
-            "mochila feminina",
-            "mochila masculina",
-            "carteira masculina",
-            "carteira feminina",
-            "cinto masculino",
-            "oculos de sol",
-            "oculos polarizado",
-            "relogio masculino",
-            "relogio feminino",
-            "pulseira masculina",
-            "colar feminino",
-            "anel masculino",
-            "brincos femininos",
-            "kit bijuterias"
-            "mochila notebook",
-            "mochila impermeavel",
-            "bolsa academia",
-            "bolsa viagem",
-            "bolsa termica fitness",
-            "pochete masculina",
-            "pochete feminina",
-            "shoulder bag"
-
-            # --- ACHADINHOS GERAIS (Surpresa) ---
-            "achadinhos shopee",
-            "ofertas shopee hoje",
-            "produtos mais vendidos shopee",
-            "promoção shopee",
-            "top shopee",
-            "gadgets virais",
-            "utilidades que facilitam a vida",
-            "produtos virais tiktok"
+            # --- MODA ---
+            "camiseta masculina basica", "camiseta oversized",
+            "bermuda masculina", "calca jogger masculina",
+            "bone masculino", "vestido feminino casual",
+            "legging fitness", "top fitness", "bolsa feminina",
+            "mochila impermeavel", "relogio masculino",
+            
+            # --- ACHADINHOS GERAIS ---
+            "achadinhos shopee", "ofertas shopee hoje",
+            "produtos mais vendidos shopee", "promoção shopee",
+            "gadgets virais", "utilidades que facilitam a vida"
         ]
         
         while True:
             try:
-                # 1. Identifica a Hora Atual para definir a estratégia
                 hour = datetime.now().hour
                 
-                # --- LÓGICA DE HORÁRIOS ---
+                # --- CRONOGRAMA INTELIGENTE 2.0 ---
                 
-                # MADRUGADA (23h às 07h) -> Modo Silencioso
-                if 23 <= hour or hour < 7:
-                    mode_name = "🌙 MODO NOTURNO"
-                    min_interval, max_interval = 120, 180 # 2h a 3h entre posts
+                # PAUSA TOTAL (01h às 06h) - Para não irritar usuários
+                if 1 <= hour < 6:
+                    print(f"💤 [{hour}h] Modo Dormir Ativado. Pausando por 30 min...")
+                    time.sleep(1800) # Dorme 30 minutos e verifica de novo
+                    continue
                     
-                # PICO DO ALMOÇO (11h às 14h) ou NOITE (18h às 22h) -> Modo Turbo
+                # START DO DIA (06h às 08h) - Ritmo lento (Café da manhã)
+                elif 6 <= hour < 8:
+                    mode_name = "🌅 BOM DIA"
+                    min_interval, max_interval = 40, 60
+                    
+                # PICO DO ALMOÇO (11h às 13h) e NOITE (18h às 22h) - Ritmo Turbo
                 elif (11 <= hour < 14) or (18 <= hour < 22):
-                    mode_name = "🔥 MODO TURBO (PICO)"
-                    min_interval, max_interval = 15, 25 # 15 a 25 min entre posts
+                    mode_name = "🔥 TURBO (ALTA CONVERSÃO)"
+                    min_interval, max_interval = 15, 25 
                     
-                # HORÁRIO COMERCIAL (07h-11h e 14h-18h) -> Modo Normal
+                # RESTO DO DIA - Ritmo Normal
                 else:
-                    mode_name = "🚶‍♂️ MODO NORMAL"
-                    min_interval, max_interval = 35, 55 # 35 a 55 min entre posts
+                    mode_name = "🚶‍♂️ NORMAL"
+                    min_interval, max_interval = 30, 45 
 
                 print(f"\n⏰ Horário: {hour}h | Estratégia: {mode_name}")
 
-                # 2. Execução da Busca e Envio
+                # 2. Execução da Busca
                 keyword = random.choice(keywords)
                 sort_type = 2 # Foco em Vendas
                 page = random.randint(1, 2)
                 
-                print(f"🔎 Buscando ofertas de: '{keyword}'...")
                 products = self.get_products(keyword=keyword, sort_type=sort_type, page=page, limit=50)
                 
-                # Filtros
+                # Filtros Híbridos
                 valid_products = [p for p in products if self._is_good_product(p, strict=True)]
                 if not valid_products:
+                    # Se não achou 'elite', tenta repescagem
                     valid_products = [p for p in products if self._is_good_product(p, strict=False)]
                 
                 if valid_products:
@@ -504,33 +377,30 @@ class ShopeeAffiliateBot:
                     chosen = valid_products[0]
                     
                     if self.send_to_telegram(chosen):
-                        # Se enviou, aplica o intervalo da estratégia atual
+                        # Define espera baseada na estratégia do horário
                         wait_minutes = random.randint(min_interval, max_interval)
                         wait_seconds = wait_minutes * 60
                         
                         next_time = datetime.fromtimestamp(datetime.now().timestamp() + wait_seconds).strftime('%H:%M')
-                        print(f"✅ Postado! Próximo envio em {wait_minutes} min (às {next_time})")
+                        print(f"✅ Próximo post em {wait_minutes} min ({next_time})")
                         time.sleep(wait_seconds)
                     else:
-                        print("⚠️ Erro no envio Telegram. Retentando em 1 min...")
-                        time.sleep(60)
+                        print("⚠️ Erro envio (Telegram). Retentando em 30s...")
+                        time.sleep(30)
                 else:
-                    print("🧹 Nenhum produto bom encontrado. Tentando outra keyword em 10s...")
-                    time.sleep(10)
+                    print("🧹 Nenhum produto bom. Trocando keyword...")
+                    time.sleep(5)
 
-            except KeyboardInterrupt:
-                print("\n🛑 Bot parado.")
-                break
             except Exception as e:
-                print(f"❌ Erro: {e}")
+                print(f"❌ Erro Crítico no Loop: {e}")
                 time.sleep(60)
 
-# --- EXECUÇÃO ---
+# --- SERVIDOR WEB FALSO (PARA RENDER) ---
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "Estou vivo!"
+    return "Bot Online e Rodando!"
 
 def run_http():
     app.run(host='0.0.0.0', port=8080)
@@ -539,7 +409,8 @@ def keep_alive():
     t = Thread(target=run_http)
     t.start()
 
+# --- EXECUÇÃO FINAL ---
 if __name__ == "__main__":
-    keep_alive() # <--- Inicia o servidor web falso
+    keep_alive() # Inicia o servidor web em segundo plano
     bot = ShopeeAffiliateBot()
     bot.run_forever()
