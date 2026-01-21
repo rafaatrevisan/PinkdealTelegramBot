@@ -113,18 +113,60 @@ class ShopeeAffiliateBot:
         sales = product.get("sales", 0)
         rating = float(product.get("ratingStar", 0))
 
-        # --- COPYWRITING MARKETING ---
+        # --- COPYWRITING DINÂMICA E ALEATÓRIA ---
         
-        # 1. Headline baseada em dados
-        if sales > 1000:
-            header_emoji = "🏆 <b>ITEM VIRAL!</b>"
-        elif discount > 40:
-            header_emoji = "🚨 <b>SUPER OFERTA!</b>"
-        elif rating >= 4.8:
-            header_emoji = "⭐ <b>AVALIAÇÃO MÁXIMA!</b>"
-        else:
-            header_emoji = "🔥 <b>ACHADINHO!</b>"
+        # 1. Definindo as categorias de headline baseadas nos dados
+        header_options = []
 
+        # CENÁRIO A: Super Desconto (> 50%) - URGÊNCIA MÁXIMA
+        if discount >= 50:
+            header_options = [
+                f"🚨 <b>ERRO DE PREÇO? -{discount}% OFF!</b>",
+                f"📉 <b>QUEIMA DE ESTOQUE: -{discount}%!</b>",
+                f"😱 <b>METADE DO PREÇO (OU MENOS)!</b>",
+                f"💸 <b>DESCONTO INSANO DETECTADO!</b>"
+            ]
+        
+        # CENÁRIO B: Produto Viral (> 2.000 vendas) - PROVA SOCIAL
+        elif sales >= 2000:
+            header_options = [
+                "🏆 <b>O QUERIDINHO DA SHOPEE!</b>",
+                "🔥 <b>ITEM VIRAL: TODO MUNDO TÁ COMPRANDO!</b>",
+                "📦 <b>ESTOQUE VOANDO (MAIS DE 2MIL VENDAS)!</b>",
+                "👀 <b>VOCÊ PRECISA VER ISSO!</b>"
+            ]
+
+        # CENÁRIO C: Avaliação Perfeita (> 4.9) - QUALIDADE
+        elif rating >= 4.9:
+            header_options = [
+                "⭐ <b>SATISFAÇÃO GARANTIDA (NOTA 5.0)!</b>",
+                "💎 <b>QUALIDADE PREMIUM APROVADA!</b>",
+                "✨ <b>ZERO DEFEITOS: AVALIAÇÃO MÁXIMA!</b>",
+                "🏅 <b>O MELHOR DA CATEGORIA!</b>"
+            ]
+
+        # CENÁRIO D: Preço Baixo (< R$ 20) - IMPULSO BARATO
+        elif price_min < 20.00:
+            header_options = [
+                "🤑 <b>PRECINHO DE PINGA!</b>",
+                "🤏 <b>CUSTA MENOS DE 20 REAIS!</b>",
+                "👛 <b>BARATINHO DO DIA!</b>",
+                "⚡ <b>OFERTA RELÂMPAGO!</b>"
+            ]
+        
+        # CENÁRIO E: Padrão (Achadinhos Bons)
+        else:
+            header_options = [
+                "🔥 <b>ACHADINHO SHOPEE!</b>",
+                "🛒 <b>VALE A PENA CONFERIR!</b>",
+                "🔎 <b>GARIMPADO PRA VOCÊ!</b>",
+                "💡 <b>OLHA O QUE EU ACHEI!</b>"
+            ]
+
+        # Escolhe uma frase aleatória da lista selecionada
+        header_emoji = random.choice(header_options)
+
+        # 2. Monta a Legenda
         caption = f"{header_emoji}\n\n"
         caption += f"📦 <b>{title}</b>\n\n"
         
@@ -134,15 +176,19 @@ class ShopeeAffiliateBot:
         else:
             caption += f"💰 Apenas: <b>{price_fmt}</b>\n"
 
+        # Formata o número de vendas para ficar bonito (ex: 1.2k)
+        sales_fmt = f"{sales/1000:.1f}k" if sales >= 1000 else sales
+        
         if sales > 0:
-            caption += f"🔥 +{sales} vendidos | ⭐ {rating:.1f}/5.0\n"
+            caption += f"🔥 +{sales_fmt} vendidos | ⭐ {rating:.1f}/5.0\n"
 
-        # 2. CTAs Rotativos
+        # 3. CTAs Rotativos (Call to Action)
         ctas = [
             "👉 <b>COMPRE AQUI:</b>",
             "🏃‍♂️ <b>CORRA ANTES QUE ACABE:</b>",
             "⚡ <b>LINK PROMOCIONAL:</b>",
-            "🛒 <b>GARANTA O SEU:</b>"
+            "🛒 <b>GARANTA O SEU:</b>",
+            "🔓 <b>VER PREÇO ATUALIZADO:</b>"
         ]
         chosen_cta = random.choice(ctas)
 
@@ -304,17 +350,17 @@ class ShopeeAffiliateBot:
                 # START DO DIA (06h às 08h) - Ritmo lento (Café da manhã)
                 elif 6 <= hour < 8:
                     mode_name = "🌅 BOM DIA"
-                    min_interval, max_interval = 40, 60
+                    min_interval, max_interval = 60, 90
                     
                 # PICO DO ALMOÇO (11h às 13h) e NOITE (18h às 22h) - Ritmo Turbo
                 elif (11 <= hour < 14) or (18 <= hour < 22):
                     mode_name = "🔥 TURBO (ALTA CONVERSÃO)"
-                    min_interval, max_interval = 15, 25 
+                    min_interval, max_interval = 25, 35
                     
                 # RESTO DO DIA - Ritmo Normal
                 else:
                     mode_name = "🚶‍♂️ NORMAL"
-                    min_interval, max_interval = 30, 45 
+                    min_interval, max_interval = 50, 60
 
                 print(f"\n⏰ Horário: {hour}h | Estratégia: {mode_name}")
 
