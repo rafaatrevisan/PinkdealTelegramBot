@@ -9,6 +9,8 @@ from typing import Dict, Optional
 from dotenv import load_dotenv
 from flask import Flask
 from threading import Thread
+import google.generativeai as genai
+from google.api_core import exceptions as google_exceptions
 
 # Carrega variáveis de ambiente
 load_dotenv()
@@ -24,27 +26,56 @@ class ShopeeAffiliateBot:
         self.shopee_url = "https://open-api.affiliate.shopee.com.br/graphql"
         self.telegram_url = f"https://api.telegram.org/bot{self.telegram_bot_token}/sendPhoto"
         
-        # Cache para evitar duplicatas (limpa se ficar muito grande)
+        # Cache para evitar duplicatas
         self.sent_products = set()
+
+        # --- CONFIGURAÇÃO DA IA (GEMINI 2.0) ---
+        self.gemini_key = os.getenv("GEMINI_API_KEY", "")
+        self.model = None
+
+        if self.gemini_key:
+            try:
+                genai.configure(api_key=self.gemini_key)
+                print("🤖 Iniciando configuração da IA...")
+                
+                # Lista de prioridade
+                priority_models = [
+                    "models/gemini-2.0-flash",
+                    "models/gemini-2.0-flash-lite",
+                    "models/gemini-flash-latest",
+                    "gemini-2.0-flash"
+                ]
+                
+                # Tenta inicializar o primeiro que funcionar
+                for model_name in priority_models:
+                    try:
+                        self.model = genai.GenerativeModel(model_name)
+                        self.model.generate_content("oi", generation_config={"max_output_tokens": 1})
+                        print(f"🤖 IA Conectada com Sucesso: {model_name}")
+                        break
+                    except Exception:
+                        continue
+                
+                if not self.model:
+                    print("⚠️ Nenhum modelo da lista foi aceito. O bot rodará SEM IA.")
+                    
+            except Exception as e:
+                print(f"⚠️ Erro Crítico na configuração IA: {e}")
+                self.model = None
 
     def _format_price(self, price: float) -> str:
         """Formata para padrão brasileiro"""
         return f"R$ {price:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
     def _calculate_real_discount(self, p_min: float, p_max: float) -> int:
-        """
-        Calcula o desconto real baseando-se APENAS nos preços.
-        Ignora o campo 'priceDiscountRate' da API que vem errado.
-        """
         if p_max > p_min and p_max > 0:
             discount = int(((p_max - p_min) / p_max) * 100)
-            # Só considera desconto se for maior que 5%
             return discount if discount >= 5 else 0
         return 0
 
     def get_products(self, keyword: str = "", sort_type: int = 2, limit: int = 50, page: int = 1):
         """
-        Busca produtos com assinatura correta (Payload incluso).
+        Busca produtos com assinatura correta.
         """
         params = [f'limit: {limit}', f'page: {page}', f'sortType: {sort_type}']
         if keyword:
@@ -58,10 +89,8 @@ class ShopeeAffiliateBot:
             f"pageInfo {{ hasNextPage }} }} }}"
         )
 
-        # 1. Payload e Assinatura
         payload_dict = {"query": query}
         payload_str = json.dumps(payload_dict, separators=(',', ':'))
-        
         timestamp = int(time.time())
         raw_signature = f"{self.app_key}{timestamp}{payload_str}{self.app_secret}"
         signature = hashlib.sha256(raw_signature.encode('utf-8')).hexdigest()
@@ -73,7 +102,7 @@ class ShopeeAffiliateBot:
 
         try:
             print(f"🔎 [{datetime.now().strftime('%H:%M')}] Buscando: '{keyword}' (Pág {page})...")
-            response = requests.post(self.shopee_url, headers=headers, data=payload_str, timeout=20)
+            response = requests.post(self.shopee_url, headers=headers, data=payload_str, timeout=30)
             response.raise_for_status()
             
             data = response.json()
@@ -113,12 +142,9 @@ class ShopeeAffiliateBot:
         sales = product.get("sales", 0)
         rating = float(product.get("ratingStar", 0))
 
-        # --- COPYWRITING DINÂMICA E ALEATÓRIA ---
-        
-        # 1. Definindo as categorias de headline baseadas nos dados
+        # --- COPYWRITING DINÂMICA ---
         header_options = []
 
-        # CENÁRIO A: Super Desconto (> 50%) - URGÊNCIA MÁXIMA
         if discount >= 50:
             header_options = [
                 f"🚨 <b>ERRO DE PREÇO? -{discount}% OFF!</b>",
@@ -126,8 +152,6 @@ class ShopeeAffiliateBot:
                 f"😱 <b>METADE DO PREÇO (OU MENOS)!</b>",
                 f"💸 <b>DESCONTO INSANO DETECTADO!</b>"
             ]
-        
-        # CENÁRIO B: Produto Viral (> 2.000 vendas) - PROVA SOCIAL
         elif sales >= 2000:
             header_options = [
                 "🏆 <b>O QUERIDINHO DA SHOPEE!</b>",
@@ -135,8 +159,6 @@ class ShopeeAffiliateBot:
                 "📦 <b>ESTOQUE VOANDO (MAIS DE 2MIL VENDAS)!</b>",
                 "👀 <b>VOCÊ PRECISA VER ISSO!</b>"
             ]
-
-        # CENÁRIO C: Avaliação Perfeita (> 4.9) - QUALIDADE
         elif rating >= 4.9:
             header_options = [
                 "⭐ <b>SATISFAÇÃO GARANTIDA (NOTA 5.0)!</b>",
@@ -144,8 +166,6 @@ class ShopeeAffiliateBot:
                 "✨ <b>ZERO DEFEITOS: AVALIAÇÃO MÁXIMA!</b>",
                 "🏅 <b>O MELHOR DA CATEGORIA!</b>"
             ]
-
-        # CENÁRIO D: Preço Baixo (< R$ 20) - IMPULSO BARATO
         elif price_min < 20.00:
             header_options = [
                 "🤑 <b>PRECINHO DE PINGA!</b>",
@@ -153,8 +173,6 @@ class ShopeeAffiliateBot:
                 "👛 <b>BARATINHO DO DIA!</b>",
                 "⚡ <b>OFERTA RELÂMPAGO!</b>"
             ]
-        
-        # CENÁRIO E: Padrão (Achadinhos Bons)
         else:
             header_options = [
                 "🔥 <b>ACHADINHO SHOPEE!</b>",
@@ -163,10 +181,8 @@ class ShopeeAffiliateBot:
                 "💡 <b>OLHA O QUE EU ACHEI!</b>"
             ]
 
-        # Escolhe uma frase aleatória da lista selecionada
         header_emoji = random.choice(header_options)
 
-        # 2. Monta a Legenda
         caption = f"{header_emoji}\n\n"
         caption += f"📦 <b>{title}</b>\n\n"
         
@@ -176,13 +192,11 @@ class ShopeeAffiliateBot:
         else:
             caption += f"💰 Apenas: <b>{price_fmt}</b>\n"
 
-        # Formata o número de vendas para ficar bonito (ex: 1.2k)
         sales_fmt = f"{sales/1000:.1f}k" if sales >= 1000 else sales
         
         if sales > 0:
             caption += f"🔥 +{sales_fmt} vendidos | ⭐ {rating:.1f}/5.0\n"
 
-        # 3. CTAs Rotativos (Call to Action)
         ctas = [
             "👉 <b>COMPRE AQUI:</b>",
             "🏃‍♂️ <b>CORRA ANTES QUE ACABE:</b>",
@@ -202,17 +216,78 @@ class ShopeeAffiliateBot:
         }
 
         try:
-            requests.post(self.telegram_url, json=payload)
+            requests.post(self.telegram_url, json=payload, timeout=30)
             print(f"✅ Enviado: {title[:30]}... (R$ {price_min})")
             
             self.sent_products.add(item_id)
             if len(self.sent_products) > 500:
                 self.sent_products.clear()
-                
             return True
+        except requests.exceptions.Timeout:
+            print("❌ Timeout Telegram. Pulando...")
+            return False
         except Exception as e:
             print(f"❌ Falha no Telegram: {e}")
             return False
+        
+    def _ai_curator(self, product_name: str, price: float) -> bool:
+        """
+        Usa IA para julgar se o produto é bom para vendas.
+        """
+        if not self.model:
+            return True 
+
+        time.sleep(4)
+
+        try:
+            prompt = f"""
+            Atue como um Curador SÊNIOR de Ofertas e Especialista em Psicologia do Consumidor.
+            Você gerencia um canal VIP no Telegram com milhões de visualizações e seu objetivo é filtrar impiedosamente os produtos.
+            
+            Analise o produto abaixo e DECIDA se ele tem potencial VIRAL e de COMPRA POR IMPULSO IMEDIATA.
+
+            Responda APENAS:
+            - "SIM" → Se o produto é visualmente atrativo, resolve uma dor ou gera desejo imediato ("efeito uau").
+            - "NAO" → Se o produto é chato, técnico, genérico ou "apenas útil".
+
+            ━━━━━━━━━━━━━━━━━━━━━━━━━━
+            ✅ CRITÉRIOS PARA APROVAR ("SIM"):
+            1. O TESTE DOS 2 SEGUNDOS: O produto é fácil de entender e desejável apenas batendo o olho?
+            2. FATOR "NÃO PRECISO, MAS QUERO": Gera desejo por status, estética, conforto ou novidade.
+            3. CATEGORIAS DE OURO: Tech Viral, Casa & Cozinha Inteligente, Fitness, Moda Hype, Pets.
+            4. PREÇO VS BENEFÍCIO: Parece uma oportunidade imperdível.
+
+            ━━━━━━━━━━━━━━━━━━━━━━━━━━
+            ❌ CRITÉRIOS PARA REJEITAR ("NAO"):
+            1. O TÉDIO TÉCNICO: Peças de reposição, parafusos, baterias, resistências.
+            2. GENÉRICOS INVISÍVEIS: Cabos brancos simples, adaptadores comuns, películas padrão.
+            3. MANUTENÇÃO CHATA: Coisas que a pessoa só compra obrigada (ex: sifão, dobradiça).
+
+            💎 REGRA DE OURO: Na dúvida, é NAO.
+
+            CONTEXTO DO PRODUTO:
+            Produto: {product_name}
+            Preço: R$ {price}
+
+            Veredito Final (apenas SIM ou NAO):
+            """
+            
+            response = self.model.generate_content(prompt)
+            decision = response.text.strip().upper()
+            
+            if "SIM" in decision:
+                return True
+            else:
+                print(f"🤖 IA Rejeitou: {product_name[:30]}...")
+                return False
+
+        except google_exceptions.ResourceExhausted:
+            # FIX: Se acabar a cota, aprova silenciosamente e segue
+            print("⚠️ Cota da IA atingida. Aprovando pelo filtro matemático.")
+            return True
+        except Exception as e:
+            print(f"⚠️ Erro na IA (Ignorando): {e}")
+            return True 
 
     def _is_good_product(self, product: Dict, strict: bool = True) -> bool:
         try:
@@ -222,7 +297,6 @@ class ShopeeAffiliateBot:
             title = product.get("productName", "").lower()
             
             # --- 1. LISTA NEGRA ---
-            # Produtos que vendem muito mas ninguém clica por impulso
             bad_words = [
                 "capa", "capinha", "case", "película", "pelicula", "vidro 3d", "vidro 9d",
                 "adaptador", "cabo usb", "cabo de dados", "cordão", "suporte simples",
@@ -230,25 +304,28 @@ class ShopeeAffiliateBot:
                 "bateria", "pilha", "plug", "tomada", "extensão"
             ]
             
-            # Se tiver qualquer palavra proibida no título, descarta IMEDIATAMENTE
-            # (Exceto se custar mais de R$ 50,00, aí pode ser uma capa premium ou cabo de luxo)
             if price < 50.00:
                 if any(bad in title for bad in bad_words):
                     return False
 
-            # --- 2. FILTRO DE PREÇO (Ticket de Impulso) ---
+            # --- 2. FILTRO DE PREÇO ---
             if price < 20.00: return False
 
-            # --- 3. RATING DINÂMICO ---
-            # Se for "barato" (25 a 60), tem que ser INCRÍVEL (Nota > 4.7)
-            if 25.00 <= price <= 60.00:
-                if rating < 4.7: return False
-                if sales < 200: return False # Tem que ter muita prova social
-            
-            # Se for "caro" (> 60), aceitamos nota normal (4.5) pois tem menos reviews
+            # --- 3. FILTRO MATEMÁTICO ---
+            if strict:
+                if 25.00 <= price <= 60.00:
+                    if rating < 4.7: return False
+                    if sales < 100: return False
+                else:
+                    if rating < 4.5: return False
+                    if sales < 50: return False
             else:
-                if rating < 4.5: return False
-                if sales < 50: return False
+                if sales < 200 or rating < 4.3: return False
+
+            # --- 4. CURADORIA VIA IA ---
+            product_name_real = product.get("productName", "")
+            if not self._ai_curator(product_name_real, price):
+                return False 
 
             return True
 
@@ -256,7 +333,7 @@ class ShopeeAffiliateBot:
             return False
 
     def run_forever(self):
-        print("🚀 Bot Shopee: MARKETING MODE ON!")
+        print("🚀 Bot Shopee: MARKETING MODE ON (GEMINI 2.0)")
         
         keywords = [
             # --- ELETRÔNICOS & TECH VIRAIS ---
@@ -269,7 +346,7 @@ class ShopeeAffiliateBot:
             "Estabilizador Celular", "Gimbal", "Microfone Lapela Sem Fio",
             "Ring Light Profissional", "Tripé Flexivel", "Suporte Celular Mesa",
 
-            # --- GAMER & SETUP (Alta Margem) ---
+            # --- GAMER & SETUP ---
             "Teclado Mecanico Redragon", "Teclado Machenike", "Mouse Logitech Gamer", "Mouse Attack Shark",
             "Mousepad Gamer 90x40", "Mousepad RGB", "Headset Havit", "Headset HyperX",
             "Controle 8BitDo", "Controle PS4 Sem Fio", "Controle Xbox Wireless",
@@ -278,7 +355,7 @@ class ShopeeAffiliateBot:
             "Cooler Celular", "Luva de Dedo Gamer", "Switch HDMI", "Monitor Gamer", "Monitor LG Ultragear", 
             "Suporte Monitor", "Monitor Ultrawide", "Webcam 1080p",
 
-            # --- CASA, COZINHA & ORGANIZAÇÃO (Ouro das Donas de Casa) ---
+            # --- CASA, COZINHA & ORGANIZAÇÃO ---
             "Mini Processador Elétrico", "Copo Stanley", "Garrafa Térmica Pacco",
             "Mop Giratório Flash Limp", "Robô Aspirador", "Aspirador Vertical",
             "Umidificador Chama", "Umidificador Anti Gravidade", "Difusor Óleos Essenciais",
@@ -288,7 +365,7 @@ class ShopeeAffiliateBot:
             "Forma Airfryer Silicone", "Tapete Super Absorvente", "Cabides Veludo",
             "Sapateira Organizadora", "Escorredor Louça Dobravel", "Triturador Alho Manual",
 
-            # --- FITNESS & SUPLEMENTOS (Recorrência Alta) ---
+            # --- FITNESS & SUPLEMENTOS ---
             "Creatina Monohidratada", "Creatina Max Titanium", "Creatina Soldiers",
             "Whey Protein Concentrado", "Whey Growth", "Whey Max Titanium",
             "Pré Treino Haze", "Pasta de Amendoim Integral", "Barra de Proteína",
@@ -297,7 +374,7 @@ class ShopeeAffiliateBot:
             "Tapete Yoga Antiderrapante", "Roda Abdominal", "Balança Bioimpedância",
             "Garrafa Galão 2L", "Luva Academia",
 
-            # --- SKINCARE & MAQUIAGEM (Marcas Shopee Friendly) ---
+            # --- SKINCARE & MAQUIAGEM ---
             "Serum Principia", "Sabonete Principia", "Creamy Skincare",
             "Protetor Solar Bioré", "Protetor Solar Neostrata", "Gel Limpeza CeraVe",
             "Hidratante CeraVe", "Cicaplast Baume", "Oleo de Rosa Mosqueta",
@@ -306,33 +383,23 @@ class ShopeeAffiliateBot:
             "Esponja Maquiagem Mari Saad", "Pincel Maquiagem Kit", 
             "Escova Limpeza Facial Elétrica", "Espelho Led Maquiagem",
             
-            # --- MODA & ACESSÓRIOS (Ticket Médio/Baixo) ---
+            # --- MODA & ACESSÓRIOS ---
             "Camiseta Oversized Masculina", "Camiseta Dry Fit", "Shorts Tactel Masculino", "Calça Jogger Masculina",
             "Mochila Impermeavel Notebook", "Bolsa Transversal Feminina", "Shoulder Bag",
             "Vestido Canelado", "Conjunto Alfaiataria Feminino", "Conjunto Alfaiataria Masculino", "Calça Wide Leg",
             "Legging Fitness Cintura Alta", "Top Fitness Sustentação", "Shorts Saia Academia",
             "Meias Nike", "Carteira Masculina Couro", "Cinto Couro Masculino", "Relógio Feminino Minimalista",
 
-            # --- PETS (Público Apaixonado) ---
+            # --- PETS ---
             "Fonte Bebedouro Gato", "Fonte Gato Inox", "Comedouro Elevado",
             "Arranhador Gato Torre", "Arranhador Papelão", "Cama Nuvem Pet",
             "Tapete Higiênico Lavavel", "Guia Retrátil Cachorro", "Peitoral Antipuxão",
             "Brinquedo Kong", "Churu Gato", "Escova Removedora Pelos Pet",
             "Luva Tira Pelos", "Cortador Unha Pet",
 
-            # --- FERRAMENTAS & AUTOMOTIVO (Público Masculino) ---
-            # "Parafusadeira Bateria", "Jogo Chaves Catraca", "Maleta Ferramentas",
-            # "Multimetro Digital", "Trena Laser", "Nivel a Laser",
-            # "Aspirador Portátil Carro", "Compressor Ar Portátil", "Auxiliar Partida",
-            # "Suporte Celular Carro Magnético", "Capa Chave Canivete", "Som Automotivo Bluetooth"
-
             # --- SAZONALIDADE ---
-            # "ovo de pascoa", "barra de chocolate", "forma de ovo de pascoa", # PÁSCOA
-            # "kit dia das maes", "perfume feminino importado", "bolsa feminina luxo", # DIA DAS MÃES
-            # "camisa time brasil", "bandeira do brasil", "corneta", # COPA/OLIMPÍADAS
-            # "decoração de natal", "arvore de natal", "pisca pisca led", # NATAL
-            "material escolar", "mochila escolar", "caderno inteligente", # VOLTA ÀS AULAS (JANEIRO)
-            "ventilador de teto", "ar condicionado portatil", "climatizador", # VERÃO FORTE
+            "material escolar", "mochila escolar", "caderno inteligente", 
+            "ventilador de teto", "ar condicionado portatil", "climatizador",
         ]
         
         while True:
@@ -340,41 +407,30 @@ class ShopeeAffiliateBot:
                 hour = datetime.now().hour
                 
                 # --- CRONOGRAMA INTELIGENTE 2.0 ---
-                
-                # PAUSA TOTAL (01h às 06h) - Para não irritar usuários
                 if 1 <= hour < 6:
                     print(f"💤 [{hour}h] Modo Dormir Ativado. Pausando por 30 min...")
-                    time.sleep(1800) # Dorme 30 minutos e verifica de novo
+                    time.sleep(1800)
                     continue
-                    
-                # START DO DIA (06h às 08h) - Ritmo lento (Café da manhã)
                 elif 6 <= hour < 8:
                     mode_name = "🌅 BOM DIA"
                     min_interval, max_interval = 60, 90
-                    
-                # PICO DO ALMOÇO (11h às 13h) e NOITE (18h às 22h) - Ritmo Turbo
                 elif (11 <= hour < 14) or (18 <= hour < 22):
                     mode_name = "🔥 TURBO (ALTA CONVERSÃO)"
                     min_interval, max_interval = 25, 35
-                    
-                # RESTO DO DIA - Ritmo Normal
                 else:
                     mode_name = "🚶‍♂️ NORMAL"
                     min_interval, max_interval = 50, 60
 
                 print(f"\n⏰ Horário: {hour}h | Estratégia: {mode_name}")
 
-                # 2. Execução da Busca
                 keyword = random.choice(keywords)
-                sort_type = 2 # Foco em Vendas
+                sort_type = 2 
                 page = random.randint(1, 2)
                 
                 products = self.get_products(keyword=keyword, sort_type=sort_type, page=page, limit=50)
                 
-                # Filtros Híbridos
                 valid_products = [p for p in products if self._is_good_product(p, strict=True)]
                 if not valid_products:
-                    # Se não achou 'elite', tenta repescagem
                     valid_products = [p for p in products if self._is_good_product(p, strict=False)]
                 
                 if valid_products:
@@ -382,10 +438,8 @@ class ShopeeAffiliateBot:
                     chosen = valid_products[0]
                     
                     if self.send_to_telegram(chosen):
-                        # Define espera baseada na estratégia do horário
                         wait_minutes = random.randint(min_interval, max_interval)
                         wait_seconds = wait_minutes * 60
-                        
                         next_time = datetime.fromtimestamp(datetime.now().timestamp() + wait_seconds).strftime('%H:%M')
                         print(f"✅ Próximo post em {wait_minutes} min ({next_time})")
                         time.sleep(wait_seconds)
@@ -414,8 +468,7 @@ def keep_alive():
     t = Thread(target=run_http)
     t.start()
 
-# --- EXECUÇÃO FINAL ---
 if __name__ == "__main__":
-    keep_alive() # Inicia o servidor web em segundo plano
+    keep_alive()
     bot = ShopeeAffiliateBot()
     bot.run_forever()
