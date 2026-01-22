@@ -5,6 +5,7 @@ import hashlib
 import json
 import random
 import html
+import re
 from datetime import datetime
 from typing import Dict, List, Optional
 from dotenv import load_dotenv
@@ -42,6 +43,42 @@ class ShopeeAffiliateBot:
             except Exception as e:
                 print(f"⚠️ Erro ao criar cliente IA: {e}")
 
+    def _call_ai_with_retry(self, prompt: str, max_tokens: int = 50, temperature: float = 0.2) -> Optional[str]:
+        """
+        Tenta chamar a IA. Se der erro 429, espera e tenta de novo (até 3x).
+        """
+        if not self.client: return None
+
+        max_retries = 3
+        base_delay = 5
+
+        for attempt in range(max_retries):
+            try:
+                response = self.client.models.generate_content(
+                    model=self.model_id,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        max_output_tokens=max_tokens, 
+                        temperature=temperature
+                    )
+                )
+                return response.text.strip()
+
+            except Exception as e:
+                error_msg = str(e)
+                # Se for erro de cota/limite (429), tenta de novo
+                if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+                    wait_time = base_delay * (attempt + 1) # 5s, depois 10s, depois 15s
+                    print(f"⚠️ IA Congestionada (429). Tentativa {attempt+1}/{max_retries}. Esperando {wait_time}s...")
+                    time.sleep(wait_time)
+                else:
+                    # Se for outro erro (ex: 400, 500), imprime e desiste logo
+                    print(f"⚠️ Erro IA Irrecuperável: {e}")
+                    return None
+        
+        print("❌ IA falhou após 3 tentativas.")
+        return None
+
     def _format_price(self, price: float) -> str:
         return f"R$ {price:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
@@ -52,7 +89,6 @@ class ShopeeAffiliateBot:
         return 0
 
     def get_products(self, keyword: str = "", sort_type: int = 2, limit: int = 50, page: int = 1):
-        """Busca produtos na Shopee"""
         params = [f'limit: {limit}', f'page: {page}', f'sortType: {sort_type}']
         if keyword: params.append(f'keyword: "{keyword}"')
         params_str = ', '.join(params)
@@ -85,50 +121,39 @@ class ShopeeAffiliateBot:
             return []
 
     def _ai_polisher(self, raw_title: str, price: float) -> str:
+        """Reescreve o título (Usa o sistema de Retry)"""
+        prompt = f"""
+        Aja como um Copywriter especialista em Telegram.
+        Reescreva o título deste produto da Shopee para torná-lo curto, elegante, desejável e com alto potencial de clique.
+
+        Título Original: "{raw_title}"
+        Preço: R$ {price}
+
+        Regras:
+        1. Remova termos de SEO e spam (ex: pronta entrega, envio já, original, lançamento, 2024).
+        2. Mantenha o nome do produto + 1 benefício ou característica desejável.
+        3. Adicione EXATAMENTE 1 emoji relevante no início, e de preferência que tenha sentido com o produto (caso não tenha, coloque algum mais genérico).
+        4. Máximo de 8 palavras.
+        5. Linguagem simples, natural e comercial.
+        6. NÃO use aspas, símbolos extras ou emojis no meio do texto.
+        
+        Exemplos: 
+        "🎧 Fone Lenovo LP40 Pro: Som Imersivo"
+        "👗 Vestido Alcinha Costas Abertas"
+
+        Sua versão:
         """
-        Usa a IA para reescrever o título de forma atraente para o Telegram.
-        """
-        if not self.client: return raw_title # Fallback se não tiver IA
-
-        try:
-            prompt = f"""
-            Aja como um Copywriter especialista em Telegram.
-            Reescreva o título deste produto da Shopee para torná-lo curto, atraente e livre de spam.
-
-            Título Original: "{raw_title}"
-            Preço: R$ {price}
-
-            Regras:
-            1. Remova termos de SEO (ex: Pronta Entrega, Envio Já, Original, 2024).
-            2. Mantenha o nome do produto e a característica principal.
-            3. Adicione UM emoji relevante no início.
-            4. Máximo de 8 palavras.
-            5. NÃO use aspas na resposta.
-            6. Se for produto de marca (Xiaomi, Baseus), destaque a marca.
-
-            Exemplo Entrada: "Fone Ouvido Bluetooth Lenovo LP40 Pro TWS Sem Fio Original"
-            Exemplo Saída: "🎧 Fone Lenovo LP40 Pro Bass Potente"
-
-            Sua versão:
-            """
-            
-            time.sleep(1) 
-            
-            response = self.client.models.generate_content(
-                model=self.model_id,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    max_output_tokens=30, 
-                    temperature=0.3
-                )
-            )
-            
-            new_title = response.text.strip().replace('"', '')
+        
+        # Chama a função blindada
+        new_title = self._call_ai_with_retry(prompt, max_tokens=30, temperature=0.3)
+        
+        if new_title:
+            new_title = new_title.replace('"', '')
             print(f"✨ Título Polido: {new_title}")
             return new_title
-
-        except Exception as e:
-            print(f"⚠️ Erro ao polir título: {e}. Usando original.")
+        else:
+            # Se falhou 3x, usa o original
+            print("⚠️ Falha no polimento. Usando título original.")
             return raw_title
 
     def send_to_telegram(self, product: Dict) -> bool:
@@ -144,9 +169,9 @@ class ShopeeAffiliateBot:
             price_max = float(product.get("priceMax", 0))
         except: return False
 
-        # Chamamos o Polidor para criar um título vendedor
+        # --- APLICANDO O POLIDOR ---
         final_title = self._ai_polisher(raw_title, price_min)
-        final_title = html.escape(final_title)
+        final_title = html.escape(final_title) 
 
         discount = self._calculate_real_discount(price_min, price_max)
         price_fmt = self._format_price(price_min)
@@ -232,8 +257,6 @@ class ShopeeAffiliateBot:
             ]
 
         header_emoji = random.choice(header_options)
-        
-        # Usa o título polido pela IA
         caption = f"{header_emoji}\n\n<b>{final_title}</b>\n\n"
         
         if discount > 0:
@@ -245,7 +268,10 @@ class ShopeeAffiliateBot:
         if sales > 0:
             caption += f"🔥 +{sales_fmt} vendidos | ⭐ {rating:.1f}/5.0\n"
 
-        ctas = ["👉 <b>COMPRE AQUI:</b>", "🏃‍♂️ <b>CORRA ANTES QUE ACABE:</b>", "⚡ <b>LINK PROMOCIONAL:</b>", "🛒 <b>GARANTA O SEU:</b>"]
+        ctas = [
+            "👉 <b>COMPRE AQUI:</b>", "🏃‍♂️ <b>CORRA ANTES QUE ACABE:</b>", "⚡ <b>LINK PROMOCIONAL:</b>",
+            "🛒 <b>GARANTA O SEU:</b>", "🔓 <b>VER PREÇO ATUALIZADO:</b>", "🔥 <b>APROVEITAR OFERTA:</b>"
+        ]
         chosen_cta = random.choice(ctas)
         caption += f"\n{chosen_cta} <a href='{link}'>Ver na Shopee</a>"
 
@@ -262,7 +288,6 @@ class ShopeeAffiliateBot:
             return False
 
     def _math_filter(self, product: Dict, strict: bool = True) -> bool:
-        """Filtro puramente matemático"""
         try:
             price = float(product.get("priceMin", 0))
             sales = product.get("sales", 0)
@@ -271,7 +296,6 @@ class ShopeeAffiliateBot:
             
             bad_words = ["capa", "capinha", "case", "película", "vidro 3d", "adaptador", "cabo usb", "parafuso", "adesivo", "bateria"]
             if price < 50.00 and any(bad in title for bad in bad_words): return False
-
             if price < 20.00: return False
 
             if strict:
@@ -282,11 +306,8 @@ class ShopeeAffiliateBot:
         except: return False
 
     def _ai_batch_selector(self, candidates: List[Dict]) -> Optional[Dict]:
-        """
-        IA: Escolhe o vencedor da lista.
-        """
-        if not self.client or not candidates:
-            return random.choice(candidates) if candidates else None
+        """IA: Escolhe o vencedor (Usa o sistema de Retry)"""
+        if not candidates: return None
 
         list_text = ""
         id_map = {}
@@ -294,7 +315,6 @@ class ShopeeAffiliateBot:
             p_min = float(p.get("priceMin", 0))
             rating = float(p.get("ratingStar", 0))
             sales = p.get("sales", 0)
-            
             list_text += f"[{idx}] {p.get('productName')} | R$ {p_min} | Nota: {rating} | Vendas: {sales}\n"
             id_map[str(idx)] = p
 
@@ -313,9 +333,9 @@ class ShopeeAffiliateBot:
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━
         🗑️ CRITÉRIOS DE ELIMINAÇÃO (O QUE IGNORAR):
-        1. O TÉDIO TÉCNICO: Peças de reposição, parafusos, baterias, resistências.
-        2. GENÉRICOS INVISÍVEIS: Cabos simples, adaptadores comuns, películas padrão.
-        3. MANUTENÇÃO CHATA: Coisas que a pessoa só compra obrigada (sifão, dobradiça).
+        1. O TÉDIO TÉCNICO: Peças de reposição, parafusos, baterias, resistências, etc.
+        2. GENÉRICOS INVISÍVEIS: Cabos simples, adaptadores comuns, películas padrão, etc.
+        3. MANUTENÇÃO CHATA: Coisas que a pessoa só compra obrigada (sifão, dobradiça, etc.).
         4. PRODUTOS RUINS: Notas baixas (<4.5) ou nomes confusos.
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -327,27 +347,16 @@ class ShopeeAffiliateBot:
         Se TODOS forem ruins ou genéricos, retorne -1.
         """
 
-        try:
-            time.sleep(2) 
-            
-            response = self.client.models.generate_content(
-                model=self.model_id,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    max_output_tokens=10, 
-                    temperature=0.2 
-                )
-            )
-            
-            result = response.text.strip()
-            
+        # Chama a função blindada
+        result = self._call_ai_with_retry(prompt, max_tokens=10, temperature=0.2)
+
+        if result:
             import re
             match = re.search(r'-?\d+', result)
-            
             if match:
                 winner_idx = match.group()
                 if winner_idx == "-1":
-                    print("🤖 IA rejeitou toda a lista.")
+                    print("🤖 IA: Nenhum produto passou no crivo.")
                     return None
                 
                 winner = id_map.get(winner_idx)
@@ -357,14 +366,15 @@ class ShopeeAffiliateBot:
 
             print(f"⚠️ Resposta IA confusa ({result}). Aleatório.")
             return random.choice(candidates)
-
-        except Exception as e:
-            print(f"⚠️ Erro IA: {e}")
+        else:
+            # Se falhou 3x, fallback para aleatório
+            print("⚠️ Falha total na IA. Usando aleatório.")
             return random.choice(candidates)
 
     def run_forever(self):
-        print("🚀 Bot Shopee V3.O (IA DUPLA)")
+        print("🚀 Bot Shopee (V4.0)")
         
+        # KEYWORDS ATUALIZADAS
         keywords = [
             # --- ÁUDIO & TECH VIRAIS ---
             "Lenovo GM2 Pro", "Lenovo LP40 Pro", "Lenovo XT80", "Fone Bluetooth Baseus Bowie", 
@@ -491,16 +501,13 @@ class ShopeeAffiliateBot:
                 all_products = self.get_products(keyword=keyword, sort_type=2, page=page, limit=50)
                 
                 if all_products:
-                    # Filtro Matemático
                     candidates = [p for p in all_products if self._math_filter(p, strict=True)]
                     if not candidates: candidates = [p for p in all_products if self._math_filter(p, strict=False)]
 
                     if candidates:
-                        print(f"🧠 Enviando {len(candidates)} candidatos para IA...")
-                        # 1. IA Escolhe
+                        print(f"🧠 Enviando {len(candidates)} candidatos para a IA...")
                         chosen = self._ai_batch_selector(candidates)
                         
-                        # 2. Polidor Reescreve e Envia
                         if chosen and self.send_to_telegram(chosen):
                             wait = random.randint(min_int, max_int) * 60
                             next_time = datetime.fromtimestamp(datetime.now().timestamp() + wait).strftime('%H:%M')
@@ -520,10 +527,10 @@ class ShopeeAffiliateBot:
                 print(f"❌ Erro Loop: {e}")
                 time.sleep(60)
 
-# Servidor Web falso para Render
+# Servidor Web
 app = Flask('')
 @app.route('/')
-def home(): return "Bot V3.0 Online!"
+def home(): return "Bot V4.0 (Retry Logic) Online!"
 def run_http(): app.run(host='0.0.0.0', port=8080)
 def keep_alive(): t = Thread(target=run_http); t.start()
 
