@@ -121,25 +121,37 @@ class ShopeeAffiliateBot:
             return []
 
     def _ai_polisher(self, raw_title: str, price: float) -> str:
-        """Reescreve o título (Usa o sistema de Retry)"""
+        """Reescreve o título"""
         prompt = f"""
-        Aja como um Copywriter especialista em Telegram.
-        Reescreva o título deste produto da Shopee para torná-lo curto, elegante, desejável e com alto potencial de clique.
+        Aja como um Curador Humano de um grupo de ofertas.
+        Seu objetivo é limpar o título deste produto da Shopee para que ele pareça ter sido escrito por uma pessoa real, e não um robô.
 
         Título Original: "{raw_title}"
         Preço: R$ {price}
 
-        Regras:
-        1. Remova termos de SEO e spam (ex: pronta entrega, envio já, original, lançamento, 2024).
-        2. Mantenha o nome do produto + 1 benefício ou característica desejável.
-        3. Adicione EXATAMENTE 1 emoji relevante no início, e de preferência que tenha sentido com o produto (caso não tenha, coloque algum mais genérico).
-        4. Máximo de 8 palavras.
-        5. Linguagem simples, natural e comercial.
-        6. NÃO use aspas, símbolos extras ou emojis no meio do texto.
-        
-        Exemplos: 
-        "🎧 Fone Lenovo LP40 Pro: Som Imersivo"
-        "👗 Vestido Alcinha Costas Abertas"
+        DIRETRIZES DE ESTILO (NATURALIDADE):
+        1. O QUE É O PRODUTO? Foque em: Categoria + Marca + Modelo + 1 Especificação Chave (se couber).
+        2. ZERO "MARKETING": Não use elogios subjetivos e genéricos (ex: remova "Lindo", "Incrível", "Potente", "Melhor", "Domine Tudo").
+        3. DIRETO AO PONTO: Remova palavras de conexão desnecessárias.
+        4. QUANTIDADE: Se for kit, comece com "Kit X..." ou "Pack...".
+
+        REGRAS DE FORMATAÇÃO:
+        1. Use EXATAMENTE 1 Emoji no início que represente o produto visualmente (ex: 🎮 para controle, 👕 para roupa).
+        2. Máximo de 6 a 8 palavras.
+        3. Sem aspas.
+
+        EXEMPLOS (DO JEITO CERTO):
+        Entrada: "Controle GameSir T4 Nova Lite Wireless Multiplataforma"
+        Saída: "🎮 Controle GameSir T4 Nova Lite Wireless"
+
+        Entrada: "Kit 5 Camisetas Masculina Algodão Básica Premium Envio Já"
+        Saída: "👕 Kit 5 Camisetas Básicas Algodão"
+
+        Entrada: "Fone Ouvido Lenovo GM2 Pro Gamer Sem Fio Bluetooth"
+        Saída: "🎧 Fone Lenovo GM2 Pro Bluetooth"
+
+        Entrada: "Pringles Batata Vários Sabores Original Promoção"
+        Saída: "🥔 Batata Pringles (Vários Sabores)"
 
         Sua versão:
         """
