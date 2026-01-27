@@ -439,11 +439,11 @@ class ShopeeAffiliateBot:
             "Escova Limpeza Facial Elétrica", "Espelho Led Maquiagem Mesa", "Secador de Cabelo Portátil",
             
             # --- PETS ---
-            "Fonte Bebedouro Gato", "Fonte Gato Inox", "Comedouro Elevado Porcelana",
-            "Arranhador Gato Torre", "Arranhador Papelão", "Cama Nuvem Pet",
-            "Tapete Higiênico Lavavel", "Guia Retrátil Cachorro 5m", "Peitoral Antipuxão",
-            "Brinquedo Kong Original", "Churu Gato", "Escova Removedora Pelos Pet",
-            "Luva Tira Pelos", "Cortador Unha Pet Led", "Túnel para Gatos",
+            # "Fonte Bebedouro Gato", "Fonte Gato Inox", "Comedouro Elevado Porcelana",
+            # "Arranhador Gato Torre", "Arranhador Papelão", "Cama Nuvem Pet",
+            # "Tapete Higiênico Lavavel", "Guia Retrátil Cachorro 5m", "Peitoral Antipuxão",
+            # "Brinquedo Kong Original", "Churu Gato", "Escova Removedora Pelos Pet",
+            # "Luva Tira Pelos", "Cortador Unha Pet Led", "Túnel para Gatos",
 
             # --- MODA FEMININA & LIFESTYL ---
             "Vestido Canelado Curto", "Vestido Canelado Midi Fenda", "Vestido Tubinho Feminino",
