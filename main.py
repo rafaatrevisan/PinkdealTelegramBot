@@ -285,7 +285,7 @@ class ShopeeAffiliateBot:
             "🛒 <b>GARANTA O SEU:</b>", "🔓 <b>VER PREÇO ATUALIZADO:</b>", "🔥 <b>APROVEITAR OFERTA:</b>"
         ]
         chosen_cta = random.choice(ctas)
-        caption += f"\n{chosen_cta} <a href='{link}'>Ver na Shopee</a>"
+        caption += f"\n{chosen_cta}\n{link}"
 
         payload = {"chat_id": self.telegram_chat_id, "photo": image_url, "caption": caption, "parse_mode": "HTML"}
 
