@@ -16,48 +16,74 @@ KEYWORDS_WEIGHTED = [
     ("Sérum Niacinamida 10%", 3),
     ("Sérum Retinol Antienvelhecimento", 3),
     ("Protetor Solar Facial FPS 50", 3),
-    ("Creme Facial Hidratante Noturno", 3),
-    ("Kit Skincare Facial Completo", 3),
+    ("Creme Facial Hidratante Noturno", 2),
+    ("Kit Skincare Facial Completo", 2),
 
     # Maquiagem
     ("Blush Líquido Melu", 3),
     ("Blush Líquido Sheglam", 3),
     ("Lip Tint Bt", 3),
-    ("Paleta Sombras Nude Océane", 3),
-    ("Lip Gloss Plumping Volumoso", 3),
-    ("Base Líquida Cobertura Alta", 3),
+    ("Paleta Sombras Nude Océane", 2),
+    ("Lip Gloss Plumping Volumoso", 2),
+    ("Base Líquida Cobertura Alta", 2),
 
     # Cabelo
     ("Escova Secadora Mondial", 3),
-    ("Chapinha Nano Titânio Bivolt", 3),
-    ("Máscara Capilar Hidratação Profunda", 3),
+    ("Chapinha Nano Titânio Bivolt", 2),
+    ("Máscara Capilar Hidratação Profunda", 2),
 
     # Corpo & Bem-estar
     ("Rolo de Jade Rosto", 3),
     ("Massageador Facial Gua Sha", 3),
-    ("Body Splash Wepink", 3),
-    ("Suplemento Whey Feminino", 3),
+    ("Body Splash Wepink", 2),
+    ("Suplemento Whey Feminino", 2),
 
     # Moda
     ("Legging Cintura Alta Levanta Bumbum", 3),
     ("Vestido Midi Fenda", 3),
-    ("Vestido Slip Dress Cetim", 3),
-    ("Conjunto Feminino Alfaiataria", 3),
-    ("Conjunto Moletom Feminino Aesthetic", 3),
-    ("Vestido Linho Midi Feminino", 3),
-    ("Calça Jeans Wide Leg Feminina", 3),
+    ("Vestido Slip Dress Cetim", 2),
+    ("Conjunto Feminino Alfaiataria", 2),
+    ("Conjunto Moletom Feminino Aesthetic", 2),
+    ("Vestido Linho Midi Feminino", 2),
+    ("Calça Jeans Wide Leg Feminina", 2),
 
     # Acessórios & Bolsas
-    ("Tênis Dad Shoes Feminino", 3),
-    ("Bolsa Shoulder Bag Feminina", 3),
-    ("Nécessaire Grande Feminina Aesthetic", 3),
+    ("Tênis Dad Shoes Feminino", 2),
+    ("Bolsa Shoulder Bag Feminina", 2),
+    ("Nécessaire Grande Feminina Aesthetic", 2),
 
-    # Casa & Decoração
+    # Casa & Decoração — PESO 3
     ("Copo Stanley Cores", 3),
     ("Garrafa Stanley Quente Frio", 3),
     ("Luminária Aesthetic Lua", 3),
+    ("Luminária de Mesa Aesthetic", 3),
     ("Difusor Varetas Ambiente Perfumado", 3),
     ("Tapete Felpudo Quarto Aesthetic", 3),
+    ("Espelho Grande Redondo Parede", 3),
+    ("Vela Aromaterapia Decorativa", 3),
+    ("Quadro Decorativo Minimalista", 3),
+    ("Porta Retrato Aesthetic", 3),
+    ("Cama Dossel Aesthetic", 3),
+
+    # Cozinha — PESO 3
+    ("Airfryer Digital", 3),
+    ("Panela Antiaderente Ceramic", 3),
+    ("Jogo de Facas Cozinha", 3),
+    ("Suporte Organizador Pia Cozinha", 3),
+    ("Pote Hermético Vidro Cozinha", 3),
+    ("Dispenser Detergente Aesthetic", 3),
+
+    # Quarto — PESO 3
+    ("Jogo de Cama Lençol 400 Fios", 3),
+    ("Almofada Decorativa Veludo", 3),
+    ("Manta Sofá Tricot Aesthetic", 3),
+    ("Cabeceira Estofada Casal", 3),
+    ("Luz Neon Led Quarto", 3),
+
+    # Banheiro — PESO 3
+    ("Kit Banheiro Aesthetic Dispenser", 3),
+    ("Tapete Antiderrapante Banheiro Felpudo", 3),
+    ("Porta Shampoo Chuveiro Inox", 3),
 
     # --- PESO 2 — Bom potencial ---
 
@@ -101,14 +127,51 @@ KEYWORDS_WEIGHTED = [
     ("Tênis Feminino Plataforma Branco", 2),
     ("Chinelo Nuvem Feminino", 2),
 
-    # Casa & Decoração
+    # Casa & Decoração — PESO 2
     ("Garrafa Térmica Pastel", 2),
-    ("Umidificador Chama", 2),
-    ("Difusor Óleos Essenciais", 2),
-    ("Vela Aromática Decorativa", 2),
-    ("Espelho Redondo Parede", 2),
+    ("Umidificador Chama Decorativo", 2),
+    ("Difusor Óleos Essenciais Elétrico", 2),
     ("Cesta Rattan Organizadora", 2),
     ("Projetor Estrelas Quarto", 2),
+    ("Vasos Decorativos Sala", 2),
+    ("Prateleira Parede Decorativa", 2),
+    ("Relógio Parede Minimalista", 2),
+    ("Cortina Blackout Quarto", 2),
+    ("Bandeja Organizadora Decorativa", 2),
+    ("Porta Joias Organizador Espelho", 2),
+    ("Lixeira Automática Sensor", 2),
+
+    # Cozinha — PESO 2
+    ("Forma Silicone Airfryer", 2),
+    ("Jogo de Tigelas Inox", 2),
+    ("Tábua de Corte Bambu", 2),
+    ("Espumador de Leite Elétrico", 2),
+    ("Organizador Geladeira Acrilico", 2),
+    ("Suporte Papel Toalha Cozinha", 2),
+    ("Chaleira Elétrica Inox", 2),
+    ("Escorredor Louça Inox", 2),
+    ("Mini Processador Elétrico Alho", 2),
+    ("Kit Potes Mantimentos Herméticos", 2),
+
+    # Quarto — PESO 2
+    ("Cabide Veludo Antideslizante Kit", 2),
+    ("Organizador Guarda Roupa", 2),
+    ("Espelho Camarim Led", 2),
+    ("Abajur Mesa Aesthetic", 2),
+    ("Despertador Digital LED", 2),
+    ("Caixinha Bluetooth Aesthetic", 2),
+
+    # Banheiro — PESO 2
+    ("Toalha Rosto Felpuda Premium", 2),
+    ("Suporte Papel Higienico Inox", 2),
+    ("Saboneteira Líquida Aesthetic", 2),
+    ("Organizador Maquiagem Banheiro", 2),
+
+    # Sala — PESO 2
+    ("Tapete Sala Pelúcia", 2),
+    ("Almofada Sofá Veludo", 2),
+    ("Planta Artificial Decorativa", 2),
+    ("Porta Vinho Decorativo", 2),
 
     # Papelaria
     ("Agenda Planejador Feminino 2025", 2),
@@ -176,22 +239,46 @@ KEYWORDS_WEIGHTED = [
     ("Sandália Salto Bloco", 1),
     ("Mule Feminino Verniz", 1),
 
-    # Casa & Organização
+    # Casa & Decoração — PESO 1
     ("Organizador de Acrílico Maquiagem", 1),
     ("Mop Giratório Flash Limp", 1),
     ("Robô Aspirador", 1),
-    ("Despertador Digital Espelhado", 1),
-    ("Potes Herméticos Mantimentos", 1),
-    ("Forma Airfryer Silicone", 1),
-    ("Tapete Super Absorvente Banheiro", 1),
-    ("Cabides Veludo Antideslizante", 1),
-    ("Mini Processador Elétrico Alho", 1),
-    ("Jogo de Lençol 400 Fios", 1),
-    ("Manta Sofá Tricot", 1),
-    ("Quadro Decorativo Quarto Feminino", 1),
-    ("Luz Led Quartos Aesthetic", 1),
     ("Kit Organizador Gaveta", 1),
     ("Porta Plantas Vaso Aesthetic", 1),
+    ("Futon Poltrona Dobrável", 1),
+    ("Pufe Decorativo Sala", 1),
+    ("Cabides Acrílico Transparente", 1),
+    ("Suporte Livros Decorativo", 1),
+    ("Caixas Organizadoras Tecido", 1),
+
+    # Cozinha — PESO 1
+    ("Luva de Forno Silicone", 1),
+    ("Balança Digital Cozinha", 1),
+    ("Rolo Massa Silicone", 1),
+    ("Pinça Culinária Inox", 1),
+    ("Tapete Antifadiga Cozinha", 1),
+    ("Porta Temperos Giratório", 1),
+    ("Abridor de Latas Elétrico", 1),
+
+    # Quarto — PESO 1
+    ("Travesseiro Nasa Viscoelástico", 1),
+    ("Protetor Colchão Impermeável", 1),
+    ("Saia Cama Box Bordada", 1),
+    ("Tule Dossel Cama Decorativo", 1),
+    ("Aromatizador Elétrico Quarto", 1),
+
+    # Banheiro — PESO 1
+    ("Espelho Banheiro com LED", 1),
+    ("Porta Escova Dente Aesthetic", 1),
+    ("Toalha de Banho Felpuda", 1),
+    ("Tapete Banheiro Antiderrapante", 1),
+    ("Organizador Embaixo Pia Banheiro", 1),
+
+    # Sala — PESO 1
+    ("Manta Decorativa Sofá", 1),
+    ("Mesa de Centro Sala", 1),
+    ("Luminária Chão Sala Aesthetic", 1),
+    ("Tapete Persa Sala", 1),
 
     # Papelaria
     ("Caneta Gel Colorida Kit", 1),
