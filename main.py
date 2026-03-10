@@ -44,6 +44,15 @@ class ShopeeAffiliateBot:
         self.sent_products_file = "sent_products.json"
         self.sent_products: set = self._load_sent_products()
 
+        # Filtro mínimo de comissão (em R$) — produtos abaixo disso são ignorados
+        self.MIN_COMMISSION = float(os.getenv("MIN_COMMISSION", "3.0"))
+
+        # Histórico recente para evitar repetições consecutivas
+        self.recent_keywords: list = []   # últimas keywords usadas
+        self.recent_item_ids: list = []   # últimos itemIds enviados (em memória)
+        self.KEYWORD_COOLDOWN = 30        # quantas keywords guardar no cooldown
+        self.ITEM_COOLDOWN = 70           # quantos itemIds recentes bloquear
+
         self.gemini_key = os.getenv("GEMINI_API_KEY", "")
         self.client = None
         self.model_id = "gemini-2.0-flash"
@@ -128,7 +137,7 @@ class ShopeeAffiliateBot:
 
         query = (
             f"query {{ productOfferV2({params_str}) {{ "
-            f"nodes {{ itemId productName imageUrl priceMin priceMax offerLink sales ratingStar }} "
+            f"nodes {{ itemId productName imageUrl priceMin priceMax offerLink sales ratingStar commissionRate commission }} "
             f"pageInfo {{ hasNextPage }} }} }}"
         )
         payload_str = json.dumps({"query": query}, separators=(',', ':'))
@@ -169,6 +178,12 @@ class ShopeeAffiliateBot:
             if any(bad in title for bad in bad_words):
                 return False
             if price < 15.00:
+                return False
+
+            # Filtro de comissão mínima (usa só o valor absoluto em R$)
+            # Se commission vier zerado/nulo, o produto passa — evita falsos negativos
+            commission = float(product.get("commission") or 0)
+            if commission > 0 and commission < self.MIN_COMMISSION:
                 return False
 
             if strict:
@@ -371,7 +386,7 @@ class ShopeeAffiliateBot:
         caption = f"{random.choice(header_options)}\n\n*{final_title}*\n\n"
 
         if discount > 0:
-            caption += f"📉 *-{discount}% OFF!*\n💰 De ~{self._format_price(price_max)}~ por *{price_fmt}*\n"
+            caption += f"📉 *-{discount}% OFF!*\n💰 De {self._format_price(price_max)} por apenas *{price_fmt}*\n"
         else:
             caption += f"💰 Apenas: *{price_fmt}*\n"
 
@@ -394,6 +409,10 @@ class ShopeeAffiliateBot:
                 resp.raise_for_status()
                 log.info(f"✅ Enviado: {final_title} ({price_fmt})")
                 self._mark_as_sent(item_id)
+                # Adiciona ao cooldown de memória curta
+                self.recent_item_ids.append(item_id)
+                if len(self.recent_item_ids) > self.ITEM_COOLDOWN:
+                    self.recent_item_ids.pop(0)
                 return True
             except requests.exceptions.RequestException as e:
                 wait = 10 * (attempt + 1)
@@ -428,7 +447,19 @@ class ShopeeAffiliateBot:
                 else:
                     min_int, max_int = 35, 50
 
-                keyword = random.choice(KEYWORDS_POOL)
+                # Exclui keywords usadas recentemente do sorteio
+                available_pool = [kw for kw in KEYWORDS_POOL if kw not in self.recent_keywords]
+                if not available_pool:
+                    # Se todas estão em cooldown (improvável), reseta
+                    self.recent_keywords.clear()
+                    available_pool = KEYWORDS_POOL
+                keyword = random.choice(available_pool)
+
+                # Registra keyword no cooldown
+                self.recent_keywords.append(keyword)
+                if len(self.recent_keywords) > self.KEYWORD_COOLDOWN:
+                    self.recent_keywords.pop(0)
+
                 page = random.randint(1, 2)
 
                 all_products = self.get_products(keyword=keyword, sort_type=2, page=page, limit=50)
@@ -445,16 +476,24 @@ class ShopeeAffiliateBot:
 
                 # Diagnóstico: mostra distribuição dos produtos recebidos
                 if all_products:
-                    sample = all_products[:3]
+                    sample = all_products[:10]
                     for p in sample:
                         log.debug(
                             f"  📦 {p.get('productName','?')[:40]} | "
                             f"R${float(p.get('priceMin',0)):.0f} | "
                             f"⭐{float(p.get('ratingStar',0)):.1f} | "
-                            f"🛒{p.get('sales',0)} vendas"
+                            f"🛒{p.get('sales',0)} vendas | "
+                            f"💰 comissão R${float(p.get('commission') or 0):.2f} ({float(p.get('commissionRate') or 0):.1f}%)"
                         )
 
-                candidates = [p for p in all_products if self._math_filter(p, strict=True)]
+                # Remove produtos enviados recentemente (histórico em memória)
+                def not_recent(p):
+                    return str(p.get("itemId")) not in self.recent_item_ids
+
+                candidates = [p for p in all_products if self._math_filter(p, strict=True) and not_recent(p)]
+                if not candidates:
+                    candidates = [p for p in all_products if self._math_filter(p, strict=False) and not_recent(p)]
+                # Último recurso: ignora cooldown de item mas mantém filtro de qualidade
                 if not candidates:
                     candidates = [p for p in all_products if self._math_filter(p, strict=False)]
 
