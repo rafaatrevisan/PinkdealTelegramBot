@@ -50,8 +50,8 @@ class ShopeeAffiliateBot:
         # Histórico recente para evitar repetições consecutivas
         self.recent_keywords: list = []   # últimas keywords usadas
         self.recent_item_ids: list = []   # últimos itemIds enviados (em memória)
-        self.KEYWORD_COOLDOWN = 30        # quantas keywords guardar no cooldown
-        self.ITEM_COOLDOWN = 70           # quantos itemIds recentes bloquear
+        self.KEYWORD_COOLDOWN = 15        # quantas keywords guardar no cooldown
+        self.ITEM_COOLDOWN = 50           # quantos itemIds recentes bloquear
 
         self.gemini_key = os.getenv("GEMINI_API_KEY", "")
         self.client = None
@@ -433,10 +433,14 @@ class ShopeeAffiliateBot:
             try:
                 hour = datetime.now().hour
 
-                # Madrugada: pausa longa
+                # Madrugada: dorme até exatamente as 7h
                 if 1 <= hour < 7:
-                    log.info(f"💤 [{hour}h] Madrugada. Dormindo 30min...")
-                    time.sleep(1800)
+                    now = datetime.now()
+                    wake_at = now.replace(hour=7, minute=0, second=0, microsecond=0)
+                    sleep_secs = (wake_at - now).total_seconds()
+                    wake_str = wake_at.strftime('%H:%M')
+                    log.info(f"💤 [{hour}h] Madrugada. Dormindo até {wake_str} ({int(sleep_secs//60)}min)...")
+                    time.sleep(sleep_secs)
                     continue
 
                 # Intervalos por horário
