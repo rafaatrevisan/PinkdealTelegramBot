@@ -187,12 +187,12 @@ class ShopeeAffiliateBot:
                 return False
 
             if strict:
-                # Faixa ideal de conversão (R$15–R$80)
-                if 15.00 <= price <= 80.00:
-                    return rating >= 4.5 and sales >= 10
-                # Faixa intermediária (R$80–R$200)
+                # Faixa ideal de conversão (R$15–R$60)
+                if 15.00 <= price <= 60.00:
+                    return rating >= 4.5 and sales >= 20
+                # Faixa intermediária (R$60–R$200)
                 elif price <= 200.00:
-                    return rating >= 4.6 and sales >= 5
+                    return rating >= 4.6 and sales >= 10
                 # Produtos premium (acima de R$200)
                 else:
                     return rating >= 4.7 and sales >= 3

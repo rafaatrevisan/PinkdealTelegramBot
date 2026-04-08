@@ -242,7 +242,7 @@ KEYWORDS_WEIGHTED = [
     ("Porta Sabonete Líquido Inox", 1),
 
     # ================================================================
-    # SKINCARE & BELEZA — PESO 3 (só os tops absolutos)
+    # SKINCARE & BELEZA — PESO 3
     # ================================================================
     ("Sérum Principia", 3),
     ("Sérum Niacinamida", 3),
@@ -383,6 +383,81 @@ KEYWORDS_WEIGHTED = [
     ("Roupa Cachorro Aesthetic", 1),
     ("Cama Pet Pelúcia", 1),
     ("Probiótico Feminino", 1),
+
+    # ================================================================
+    # ACHADINHOS DO DIA — variedade para surpresa e engajamento
+    # Foco em produtos virais, acessíveis e com apelo de impulso
+    # ================================================================
+
+    # Cabelo & Escova
+    ("Escova Cabelo Elétrica Portátil", 2),
+    ("Escova Rotativa Automática Cabelo", 2),
+    ("Pente Elétrico Alisamento", 2),
+    ("Kit Escova Cabelo Profissional", 2),
+    ("Escova Raquete Cerâmica", 1),
+    ("Pente Fino Antiestático", 1),
+    ("Escova Wet Brush Detangle", 1),
+    ("Clipe Preso Cabelo Aesthetic", 1),
+
+    # Calçados & Chinelos
+    ("Chinelo Nuvem Slide Feminino", 2),
+    ("Sandália Flatform Feminina", 2),
+    ("Chinelo Birken Feminino", 2),
+    ("Tênis Chunky Feminino", 2),
+    ("Sapatilha Bico Fino Feminina", 1),
+    ("Sandália Rasteira Tiras Feminina", 1),
+    ("Chinelo Slide Estampado", 1),
+    ("Meia Sapatilha Antiderrapante", 1),
+
+    # Roupas casuais & básicos
+    ("Camisa Linho Feminina", 2),
+    ("Camiseta Feminina Básica Algodão", 2),
+    ("Camisa Oversized Feminina", 2),
+    ("Vestido Camiseta Feminino", 2),
+    ("Blusa Manga Longa Feminina", 2),
+    ("Regata Feminina Básica Kit", 1),
+    ("Camiseta Cropped Feminina", 1),
+    ("Pijama Feminino Curto Verão", 1),
+    ("Conjunto Pijama Feminino", 2),
+    ("Short Feminino Cintura Alta", 1),
+    ("Bermuda Moletom Feminina", 1),
+
+    # Acessórios do dia a dia
+    ("Óculos de Sol Feminino Vintage", 2),
+    ("Carteira Feminina Pequena", 2),
+    ("Porta Cartão Feminino Aesthetic", 2),
+    ("Cinto Feminino Fino Dourado", 1),
+    ("Chapéu Bucket Hat Feminino", 2),
+    ("Boné Feminino Aesthetic", 1),
+    ("Lenço de Cabelo Aesthetic", 2),
+    ("Presilha Garra Cabelo Grande", 2),
+    ("Headband Tiara Feminina", 1),
+    ("Scrunchie Cetim Kit", 1),
+
+    # Eletrônicos & gadgets virais femininos
+    ("Fone Bluetooth Feminino Aesthetic", 2),
+    ("Carregador Portátil Rosa", 2),
+    ("Caixinha Som Bluetooth Pequena", 2),
+    ("Ventilador Portátil USB", 2),
+    ("Webcam Full HD Youtuber", 1),
+    ("Ring Light Selfie Pequena", 2),
+    ("Suporte Celular Pescoço", 1),
+
+    # Fitness & saúde
+    ("Squeeze Feminino Academia", 2),
+    ("Tapete Yoga Feminino", 2),
+    ("Elástico Resistência Glúteo Kit", 2),
+    ("Massageador Corporal Elétrico", 2),
+    ("Corda Pular Fitness", 1),
+    ("Meia Esportiva Feminina Kit", 1),
+
+    # Utilidades virais do dia a dia
+    ("Sacola Reutilizável Aesthetic", 2),
+    ("Capa de Chuva Feminina", 1),
+    ("Guarda Chuva Compacto Estampado", 2),
+    ("Mochila Feminina Aesthetic", 2),
+    ("Porta Documentos Viagem", 1),
+    ("Nécessaire Transparente TSA", 1),
 ]
 
 # Expande a lista respeitando os pesos para uso com random.choice
